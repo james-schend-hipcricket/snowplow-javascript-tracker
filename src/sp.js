@@ -36,335 +36,6 @@
 
 
 
-// ***** File: \js\lib\jstz.js *****
-
-/*
- * jstz.js
- *
- * @description Makes a robust determination of a user's timezone
- * @version     2012-05-10
- * @author      Jon Nylander (https://bitbucket.org/pellepim)
- * @license     MIT
- * @link        https://bitbucket.org/pellepim/jstimezonedetect/raw/f83d5a26fa638f7cc528430005761febb20ae447/detect_timezone.js
- *
- * Modifications:
- * - None
- */
-
-/*jslint undef: true */
-/*global console*/
-/*global exports*/
-/*version 2012-05-10*/
-
-(function(root) {
-  /**
-   * Namespace to hold all the code for timezone detection.
-   */
-  var jstz = (function () {
-      'use strict';
-      var HEMISPHERE_SOUTH = 's',
-
-          /**
-           * Gets the offset in minutes from UTC for a certain date.
-           * @param {Date} date
-           * @returns {Number}
-           */
-          get_date_offset = function (date) {
-              var offset = -date.getTimezoneOffset();
-              return (offset !== null ? offset : 0);
-          },
-
-          get_january_offset = function () {
-              return get_date_offset(new Date(2010, 0, 1, 0, 0, 0, 0));
-          },
-
-          get_june_offset = function () {
-              return get_date_offset(new Date(2010, 5, 1, 0, 0, 0, 0));
-          },
-
-          /**
-           * Private method.
-           * Checks whether a given date is in daylight savings time.
-           * If the date supplied is after june, we assume that we're checking
-           * for southern hemisphere DST.
-           * @param {Date} date
-           * @returns {Boolean}
-           */
-          date_is_dst = function (date) {
-              var base_offset = ((date.getMonth() > 5 ? get_june_offset()
-                                                  : get_january_offset())),
-                  date_offset = get_date_offset(date);
-
-              return (base_offset - date_offset) !== 0;
-          },
-
-          /**
-           * This function does some basic calculations to create information about
-           * the user's timezone.
-           *
-           * Returns a key that can be used to do lookups in jstz.olson.timezones.
-           *
-           * @returns {String}
-           */
-
-          lookup_key = function () {
-              var january_offset = get_january_offset(),
-                  june_offset = get_june_offset(),
-                  diff = get_january_offset() - get_june_offset();
-
-              if (diff < 0) {
-                  return january_offset + ",1";
-              } else if (diff > 0) {
-                  return june_offset + ",1," + HEMISPHERE_SOUTH;
-              }
-
-              return january_offset + ",0";
-          },
-
-          /**
-           * Uses get_timezone_info() to formulate a key to use in the olson.timezones dictionary.
-           *
-           * Returns a primitive object on the format:
-           * {'timezone': TimeZone, 'key' : 'the key used to find the TimeZone object'}
-           *
-           * @returns Object
-           */
-          determine = function () {
-              var key = lookup_key();
-              return new jstz.TimeZone(jstz.olson.timezones[key]);
-          };
-
-      return {
-          determine_timezone : function () {
-              if (typeof console !== 'undefined') {
-                  console.log("jstz.determine_timezone() is deprecated and will be removed in an upcoming version. Please use jstz.determine() instead.");
-              }
-              return determine();
-          },
-          determine: determine,
-          date_is_dst : date_is_dst
-      };
-  }());
-
-  /**
-   * Simple object to perform ambiguity check and to return name of time zone.
-   */
-  jstz.TimeZone = function (tz_name) {
-      'use strict';
-      var timezone_name = null,
-
-          name = function () {
-              return timezone_name;
-          },
-
-          /**
-           * Checks if a timezone has possible ambiguities. I.e timezones that are similar.
-           *
-           * For example, if the preliminary scan determines that we're in America/Denver.
-           * We double check here that we're really there and not in America/Mazatlan.
-           *
-           * This is done by checking known dates for when daylight savings start for different
-           * timezones during 2010 and 2011.
-           */
-          ambiguity_check = function () {
-              var ambiguity_list = jstz.olson.ambiguity_list[timezone_name],
-                  length = ambiguity_list.length,
-                  i = 0,
-                  tz = ambiguity_list[0];
-
-              for (; i < length; i += 1) {
-                  tz = ambiguity_list[i];
-
-                  if (jstz.date_is_dst(jstz.olson.dst_start_dates[tz])) {
-                      timezone_name = tz;
-                      return;
-                  }
-              }
-          },
-
-          /**
-           * Checks if it is possible that the timezone is ambiguous.
-           */
-          is_ambiguous = function () {
-              return typeof (jstz.olson.ambiguity_list[timezone_name]) !== 'undefined';
-          };
-
-
-
-      timezone_name = tz_name;
-      if (is_ambiguous()) {
-          ambiguity_check();
-      }
-
-      return {
-          name: name
-      };
-  };
-
-  jstz.olson = {};
-
-  /*
-   * The keys in this dictionary are comma separated as such:
-   *
-   * First the offset compared to UTC time in minutes.
-   *
-   * Then a flag which is 0 if the timezone does not take daylight savings into account and 1 if it
-   * does.
-   *
-   * Thirdly an optional 's' signifies that the timezone is in the southern hemisphere,
-   * only interesting for timezones with DST.
-   *
-   * The mapped arrays is used for constructing the jstz.TimeZone object from within
-   * jstz.determine_timezone();
-   */
-  jstz.olson.timezones = {
-      '-720,0'   : 'Etc/GMT+12',
-      '-660,0'   : 'Pacific/Pago_Pago',
-      '-600,1'   : 'America/Adak',
-      '-600,0'   : 'Pacific/Honolulu',
-      '-570,0'   : 'Pacific/Marquesas',
-      '-540,0'   : 'Pacific/Gambier',
-      '-540,1'   : 'America/Anchorage',
-      '-480,1'   : 'America/Los_Angeles',
-      '-480,0'   : 'Pacific/Pitcairn',
-      '-420,0'   : 'America/Phoenix',
-      '-420,1'   : 'America/Denver',
-      '-360,0'   : 'America/Guatemala',
-      '-360,1'   : 'America/Chicago',
-      '-360,1,s' : 'Pacific/Easter',
-      '-300,0'   : 'America/Bogota',
-      '-300,1'   : 'America/New_York',
-      '-270,0'   : 'America/Caracas',
-      '-240,1'   : 'America/Halifax',
-      '-240,0'   : 'America/Santo_Domingo',
-      '-240,1,s' : 'America/Asuncion',
-      '-210,1'   : 'America/St_Johns',
-      '-180,1'   : 'America/Godthab',
-      '-180,0'   : 'America/Argentina/Buenos_Aires',
-      '-180,1,s' : 'America/Montevideo',
-      '-120,0'   : 'America/Noronha',
-      '-120,1'   : 'Etc/GMT+2',
-      '-60,1'    : 'Atlantic/Azores',
-      '-60,0'    : 'Atlantic/Cape_Verde',
-      '0,0'      : 'Etc/UTC',
-      '0,1'      : 'Europe/London',
-      '60,1'     : 'Europe/Berlin',
-      '60,0'     : 'Africa/Lagos',
-      '60,1,s'   : 'Africa/Windhoek',
-      '120,1'    : 'Asia/Beirut',
-      '120,0'    : 'Africa/Johannesburg',
-      '180,1'    : 'Europe/Moscow',
-      '180,0'    : 'Asia/Baghdad',
-      '210,1'    : 'Asia/Tehran',
-      '240,0'    : 'Asia/Dubai',
-      '240,1'    : 'Asia/Yerevan',
-      '270,0'    : 'Asia/Kabul',
-      '300,1'    : 'Asia/Yekaterinburg',
-      '300,0'    : 'Asia/Karachi',
-      '330,0'    : 'Asia/Kolkata',
-      '345,0'    : 'Asia/Kathmandu',
-      '360,0'    : 'Asia/Dhaka',
-      '360,1'    : 'Asia/Omsk',
-      '390,0'    : 'Asia/Rangoon',
-      '420,1'    : 'Asia/Krasnoyarsk',
-      '420,0'    : 'Asia/Jakarta',
-      '480,0'    : 'Asia/Shanghai',
-      '480,1'    : 'Asia/Irkutsk',
-      '525,0'    : 'Australia/Eucla',
-      '525,1,s'  : 'Australia/Eucla',
-      '540,1'    : 'Asia/Yakutsk',
-      '540,0'    : 'Asia/Tokyo',
-      '570,0'    : 'Australia/Darwin',
-      '570,1,s'  : 'Australia/Adelaide',
-      '600,0'    : 'Australia/Brisbane',
-      '600,1'    : 'Asia/Vladivostok',
-      '600,1,s'  : 'Australia/Sydney',
-      '630,1,s'  : 'Australia/Lord_Howe',
-      '660,1'    : 'Asia/Kamchatka',
-      '660,0'    : 'Pacific/Noumea',
-      '690,0'    : 'Pacific/Norfolk',
-      '720,1,s'  : 'Pacific/Auckland',
-      '720,0'    : 'Pacific/Tarawa',
-      '765,1,s'  : 'Pacific/Chatham',
-      '780,0'    : 'Pacific/Tongatapu',
-      '780,1,s'  : 'Pacific/Apia',
-      '840,0'    : 'Pacific/Kiritimati'
-  };
-
-
-  /**
-   * This object contains information on when daylight savings starts for
-   * different timezones.
-   *
-   * The list is short for a reason. Often we do not have to be very specific
-   * to single out the correct timezone. But when we do, this list comes in
-   * handy.
-   *
-   * Each value is a date denoting when daylight savings starts for that timezone.
-   */
-  jstz.olson.dst_start_dates = {
-      'America/Denver' : new Date(2011, 2, 13, 3, 0, 0, 0),
-      'America/Mazatlan' : new Date(2011, 3, 3, 3, 0, 0, 0),
-      'America/Chicago' : new Date(2011, 2, 13, 3, 0, 0, 0),
-      'America/Mexico_City' : new Date(2011, 3, 3, 3, 0, 0, 0),
-      'Atlantic/Stanley' : new Date(2011, 8, 4, 7, 0, 0, 0),
-      'America/Asuncion' : new Date(2011, 9, 2, 3, 0, 0, 0),
-      'America/Santiago' : new Date(2011, 9, 9, 3, 0, 0, 0),
-      'America/Campo_Grande' : new Date(2011, 9, 16, 5, 0, 0, 0),
-      'America/Montevideo' : new Date(2011, 9, 2, 3, 0, 0, 0),
-      'America/Sao_Paulo' : new Date(2011, 9, 16, 5, 0, 0, 0),
-      'America/Los_Angeles' : new Date(2011, 2, 13, 8, 0, 0, 0),
-      'America/Santa_Isabel' : new Date(2011, 3, 5, 8, 0, 0, 0),
-      'America/Havana' : new Date(2011, 2, 13, 2, 0, 0, 0),
-      'America/New_York' : new Date(2011, 2, 13, 7, 0, 0, 0),
-      'Asia/Gaza' : new Date(2011, 2, 26, 23, 0, 0, 0),
-      'Asia/Beirut' : new Date(2011, 2, 27, 1, 0, 0, 0),
-      'Europe/Minsk' : new Date(2011, 2, 27, 2, 0, 0, 0),
-      'Europe/Helsinki' : new Date(2011, 2, 27, 4, 0, 0, 0),
-      'Europe/Istanbul' : new Date(2011, 2, 28, 5, 0, 0, 0),
-      'Asia/Damascus' : new Date(2011, 3, 1, 2, 0, 0, 0),
-      'Asia/Jerusalem' : new Date(2011, 3, 1, 6, 0, 0, 0),
-      'Africa/Cairo' : new Date(2010, 3, 30, 4, 0, 0, 0),
-      'Asia/Yerevan' : new Date(2011, 2, 27, 4, 0, 0, 0),
-      'Asia/Baku'    : new Date(2011, 2, 27, 8, 0, 0, 0),
-      'Pacific/Auckland' : new Date(2011, 8, 26, 7, 0, 0, 0),
-      'Pacific/Fiji' : new Date(2010, 11, 29, 23, 0, 0, 0),
-      'America/Halifax' : new Date(2011, 2, 13, 6, 0, 0, 0),
-      'America/Goose_Bay' : new Date(2011, 2, 13, 2, 1, 0, 0),
-      'America/Miquelon' : new Date(2011, 2, 13, 5, 0, 0, 0),
-      'America/Godthab' : new Date(2011, 2, 27, 1, 0, 0, 0)
-  };
-
-  /**
-   * The keys in this object are timezones that we know may be ambiguous after
-   * a preliminary scan through the olson_tz object.
-   *
-   * The array of timezones to compare must be in the order that daylight savings
-   * starts for the regions.
-   */
-  jstz.olson.ambiguity_list = {
-      'America/Denver' : ['America/Denver', 'America/Mazatlan'],
-      'America/Chicago' : ['America/Chicago', 'America/Mexico_City'],
-      'America/Asuncion' : ['Atlantic/Stanley', 'America/Asuncion', 'America/Santiago', 'America/Campo_Grande'],
-      'America/Montevideo' : ['America/Montevideo', 'America/Sao_Paulo'],
-      'Asia/Beirut' : ['Asia/Gaza', 'Asia/Beirut', 'Europe/Minsk', 'Europe/Helsinki', 'Europe/Istanbul', 'Asia/Damascus', 'Asia/Jerusalem', 'Africa/Cairo'],
-      'Asia/Yerevan' : ['Asia/Yerevan', 'Asia/Baku'],
-      'Pacific/Auckland' : ['Pacific/Auckland', 'Pacific/Fiji'],
-      'America/Los_Angeles' : ['America/Los_Angeles', 'America/Santa_Isabel'],
-      'America/New_York' : ['America/Havana', 'America/New_York'],
-      'America/Halifax' : ['America/Goose_Bay', 'America/Halifax'],
-      'America/Godthab' : ['America/Miquelon', 'America/Godthab']
-  };
-
-  if (typeof exports !== 'undefined') {
-    exports.jstz = jstz;
-  } else {
-    root.jstz = jstz;
-  }
-})(this);
-
-
-
 // ***** File: \js\init.js *****
 
 /*
@@ -1129,52 +800,52 @@ SnowPlow.base64decode = function(data) {
 // ***** File: \js\tracker.js *****
 
 /*
- * JavaScript tracker for Snowplow: tracker.js
- * 
- * Significant portions copyright 2010 Anthon Pang. Remainder copyright 
- * 2012-2014 Snowplow Analytics Ltd. All rights reserved. 
- * 
- * Redistribution and use in source and binary forms, with or without 
- * modification, are permitted provided that the following conditions are 
- * met: 
- *
- * * Redistributions of source code must retain the above copyright 
- *   notice, this list of conditions and the following disclaimer. 
- *
- * * Redistributions in binary form must reproduce the above copyright 
- *   notice, this list of conditions and the following disclaimer in the 
- *   documentation and/or other materials provided with the distribution. 
- *
- * * Neither the name of Anthon Pang nor Snowplow Analytics Ltd nor the
- *   names of their contributors may be used to endorse or promote products
- *   derived from this software without specific prior written permission. 
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+* JavaScript tracker for Snowplow: tracker.js
+* 
+* Significant portions copyright 2010 Anthon Pang. Remainder copyright 
+* 2012-2014 Snowplow Analytics Ltd. All rights reserved. 
+* 
+* Redistribution and use in source and binary forms, with or without 
+* modification, are permitted provided that the following conditions are 
+* met: 
+*
+* * Redistributions of source code must retain the above copyright 
+*   notice, this list of conditions and the following disclaimer. 
+*
+* * Redistributions in binary form must reproduce the above copyright 
+*   notice, this list of conditions and the following disclaimer in the 
+*   documentation and/or other materials provided with the distribution. 
+*
+* * Neither the name of Anthon Pang nor Snowplow Analytics Ltd nor the
+*   names of their contributors may be used to endorse or promote products
+*   derived from this software without specific prior written permission. 
+*
+* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+* "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
+* LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR 
+* A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
+* OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+* SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
+* LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
+* DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY 
+* THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
 
 /*
- * SnowPlow Tracker class
- *
- * Takes an argmap as its sole parameter. Argmap supports:
- *
- * 1. Empty             - to initialize an Async Tracker
- * 2. {cf: 'subdomain'} - to initialize a Sync Tracker with
- *                        a CloudFront-based collector 
- * 3. {url: 'rawurl'}   - to initialize a Sync Tracker with a
- *                        URL-based collector
- *
- * See also: Tracker.setCollectorUrl() and Tracker.setCollectorCf()
- */
+* SnowPlow Tracker class
+*
+* Takes an argmap as its sole parameter. Argmap supports:
+*
+* 1. Empty             - to initialize an Async Tracker
+* 2. {cf: 'subdomain'} - to initialize a Sync Tracker with
+*                        a CloudFront-based collector 
+* 3. {url: 'rawurl'}   - to initialize a Sync Tracker with a
+*                        URL-based collector
+*
+* See also: Tracker.setCollectorUrl() and Tracker.setCollectorCf()
+*/
 SnowPlow.Tracker = function Tracker(argmap) {
 
     /************************************************************
@@ -1891,19 +1562,19 @@ SnowPlow.Tracker = function Tracker(argmap) {
             addNvPair(key, value, false);
         };
 
-        var addJson = function (keyIfEncoded, keyIfNotEncoded, json) {
+        //        var addJson = function (keyIfEncoded, keyIfNotEncoded, json) {
 
-//            if (SnowPlow.isNonEmptyJson(json)) {
-//                var typed = appendTypes(json);
-//                var str = JSON2.stringify(typed);
+        //            if (SnowPlow.isNonEmptyJson(json)) {
+        //                var typed = appendTypes(json);
+        //                var str = JSON2.stringify(typed);
 
-//                if (base64Encode) {
-//                    addRaw(keyIfEncoded, SnowPlow.base64urlencode(str));
-//                } else {
-//                    add(keyIfNotEncoded, str);
-//                }
-//            }
-        };
+        //                if (base64Encode) {
+        //                    addRaw(keyIfEncoded, SnowPlow.base64urlencode(str));
+        //                } else {
+        //                    add(keyIfNotEncoded, str);
+        //                }
+        //            }
+        //        };
 
         return {
             add: add,
@@ -1919,9 +1590,8 @@ SnowPlow.Tracker = function Tracker(argmap) {
     * Log the page view / visit
     *
     * @param string customTitle The user-defined page title to attach to this page view
-    * @param object context Custom context relating to the event
     */
-    function logPageView(customTitle, context) {
+    function logPageView(customTitle) {
 
         // Fixup page title. We'll pass this to logPagePing too.
         var pageTitle = SnowPlow.fixupTitle(customTitle || configTitle);
@@ -1930,7 +1600,6 @@ SnowPlow.Tracker = function Tracker(argmap) {
         var sb = requestStringBuilder(configEncodeBase64);
         sb.add('e', 'pv'); // 'pv' for Page View
         sb.add('page', pageTitle);
-        sb.addJson('cx', 'co', context);
         var request = getRequest(sb, 'pageView');
         sendRequest(request, configTrackerPause);
 
@@ -1968,7 +1637,7 @@ SnowPlow.Tracker = function Tracker(argmap) {
                 if ((lastActivityTime + configHeartBeatTimer) > now.getTime()) {
                     // Send ping if minimum visit time has elapsed
                     if (configMinimumVisitTime < now.getTime()) {
-                        logPagePing(pageTitle, context); // Grab the min/max globals
+                        logPagePing(pageTitle); // Grab the min/max globals
                     }
                 }
             }, configHeartBeatTimer);
@@ -1982,9 +1651,8 @@ SnowPlow.Tracker = function Tracker(argmap) {
     * logPageView() above.
     *
     * @param string pageTitle The page title to attach to this page ping
-    * @param object context Custom context relating to the event
     */
-    function logPagePing(pageTitle, context) {
+    function logPagePing(pageTitle) {
         var sb = requestStringBuilder(configEncodeBase64);
         sb.add('e', 'pp'); // 'pp' for Page Ping
         sb.add('page', pageTitle);
@@ -1992,7 +1660,6 @@ SnowPlow.Tracker = function Tracker(argmap) {
         sb.addRaw('pp_max', maxXOffset); // Global
         sb.addRaw('pp_miy', minYOffset); // Global
         sb.addRaw('pp_may', maxYOffset); // Global
-        sb.addJson('cx', 'co', context);
         resetMaxScrolls();
         var request = getRequest(sb, 'pagePing');
         sendRequest(request, configTrackerPause);
@@ -2006,9 +1673,8 @@ SnowPlow.Tracker = function Tracker(argmap) {
     * @param string label (optional) An optional string to provide additional dimensions to the event data
     * @param string property (optional) Describes the object or the action performed on it, e.g. quantity of item added to basket
     * @param numeric value (optional) An integer or floating point number to provide numerical data about the user event
-    * @param object context Custom context relating to the event
     */
-    function logStructEvent(category, action, label, property, value, context) {
+    function logStructEvent(category, action, label, property, value) {
         var sb = requestStringBuilder(configEncodeBase64);
         sb.add('e', 'se'); // 'se' for Structured Event
         sb.add('se_ca', category);
@@ -2016,7 +1682,6 @@ SnowPlow.Tracker = function Tracker(argmap) {
         sb.add('se_la', label);
         sb.add('se_pr', property);
         sb.add('se_va', value);
-        sb.addJson('cx', 'co', context);
         request = getRequest(sb, 'structEvent');
         sendRequest(request, configTrackerPause);
     }
@@ -2026,14 +1691,12 @@ SnowPlow.Tracker = function Tracker(argmap) {
     *
     * @param string name The name of the event
     * @param object properties The properties of the event
-    * @param object context Custom context relating to the event
     */
-    function logUnstructEvent(name, properties, context) {
+    function logUnstructEvent(name, properties) {
         var sb = requestStringBuilder(configEncodeBase64);
         sb.add('e', 'ue'); // 'ue' for Unstructured Event
         sb.add('ue_na', name);
         sb.addJson('ue_px', 'ue_pr', properties);
-        sb.addJson('cx', 'co', context);
         request = getRequest(sb, 'unstructEvent');
         sendRequest(request, configTrackerPause);
     }
@@ -2050,10 +1713,9 @@ SnowPlow.Tracker = function Tracker(argmap) {
     * @param string state 
     * @param string country 
     * @param string currency The currency the total/tax/shipping are expressed in
-    * @param object context Custom context relating to the event
     */
     // TODO: add params to comment
-    function logTransaction(orderId, affiliation, total, tax, shipping, city, state, country, currency, context) {
+    function logTransaction(orderId, affiliation, total, tax, shipping, city, state, country, currency) {
         var sb = requestStringBuilder(configEncodeBase64);
         sb.add('e', 'tr'); // 'tr' for TRansaction
         sb.add('tr_id', orderId);
@@ -2065,7 +1727,6 @@ SnowPlow.Tracker = function Tracker(argmap) {
         sb.add('tr_st', state);
         sb.add('tr_co', country);
         sb.add('tr_cu', currency);
-        sb.addJson('cx', 'co', context);
         var request = getRequest(sb, 'transaction');
         sendRequest(request, configTrackerPause);
     }
@@ -2080,10 +1741,9 @@ SnowPlow.Tracker = function Tracker(argmap) {
     * @param string price
     * @param string quantity
     * @param string currency The currency the price is expressed in
-    * @param object context Custom context relating to the event
     */
     // TODO: add params to comment
-    function logTransactionItem(orderId, sku, name, category, price, quantity, currency, context) {
+    function logTransactionItem(orderId, sku, name, category, price, quantity, currency) {
         var sb = requestStringBuilder(configEncodeBase64);
         sb.add('e', 'ti'); // 'ti' for Transaction Item
         sb.add('ti_id', orderId);
@@ -2093,7 +1753,6 @@ SnowPlow.Tracker = function Tracker(argmap) {
         sb.add('ti_pr', price);
         sb.add('ti_qu', quantity);
         sb.add('ti_cu', currency);
-        sb.addJson('cx', 'co', context);
         var request = getRequest(sb, 'transactionItem');
         sendRequest(request, configTrackerPause);
     }
@@ -2107,12 +1766,11 @@ SnowPlow.Tracker = function Tracker(argmap) {
     *
     * @param string url The target URL
     * @param string linkType The type of link - link or download (see getLinkType() for details)
-    * @param object context Custom context relating to the event
     */
     // TODO: rename to LinkClick
     // TODO: this functionality is not yet fully implemented.
     // See https://github.com/snowplow/snowplow/issues/75
-    function logLink(url, linkType, context) {
+    function logLink(url, linkType) {
         var sb = requestStringBuilder(configEncodeBase64);
         sb.add('e', linkType);
         sb.add('t_url', purify(url));
@@ -2127,20 +1785,18 @@ SnowPlow.Tracker = function Tracker(argmap) {
     * @param string campaignId (optional) Identifier for the campaign which the banner belongs to
     * @param string advertiserId (optional) Identifier for the advertiser which the campaign belongs to
     * @param string userId (optional) Ad server identifier for the viewer of the banner
-    * @param object context Custom context relating to the event
     */
     // TODO: rename to logAdImpression and deprecate logImpression
     // TODO: should add impressionId as well.
     // TODO: should add in zoneId (aka placementId, slotId?) as well
     // TODO: change ad_ to ai_?
-    function logImpression(bannerId, campaignId, advertiserId, userId, context) {
+    function logImpression(bannerId, campaignId, advertiserId, userId) {
         var sb = requestStringBuilder(configEncodeBase64);
         sb.add('e', 'ad'); // 'ad' for AD impression
         sb.add('ad_ba', bannerId);
         sb.add('ad_ca', campaignId)
         sb.add('ad_ad', advertiserId);
         sb.add('ad_uid', userId);
-        sb.addJson('cx', 'co', context);
         request = getRequest(sb, 'impression');
         sendRequest(request, configTrackerPause);
     }
@@ -2373,8 +2029,12 @@ SnowPlow.Tracker = function Tracker(argmap) {
     * Returns visitor timezone
     */
     function detectTimezone() {
-        var tz = jstz.determine();
-        return (typeof (tz) === 'undefined') ? '' : tz.name();
+        //        var tz = jstz.determine();
+        //        return (typeof (tz) === 'undefined') ? '' : tz.name();
+        var tzo = new Date().getTimezoneOffset();
+        var tz = String(-tzo);
+
+        return tz;
     }
 
     /**
@@ -2417,18 +2077,11 @@ SnowPlow.Tracker = function Tracker(argmap) {
 			    // document types
 			    pdf: 'application/pdf',
 
-			    // media players
-			    qt: 'video/quicktime',
-			    realp: 'audio/x-pn-realaudio-plugin',
-			    wma: 'application/x-mplayer2',
-
 			    // interactive multimedia
-			    dir: 'application/x-director',
 			    fla: 'application/x-shockwave-flash',
 
 			    // RIA
 			    java: 'application/x-java-vm',
-			    gears: 'application/x-googlegears',
 			    ag: 'application/x-silverlight'
 			},
 			features = {};
@@ -2917,11 +2570,10 @@ SnowPlow.Tracker = function Tracker(argmap) {
         * Log visit to this page
         *
         * @param string customTitle
-        * @param object Custom context relating to the event
         */
-        trackPageView: function (customTitle, context) {
+        trackPageView: function (customTitle) {
             trackCallback(function () {
-                logPageView(customTitle, context);
+                logPageView(customTitle);
             });
         },
 
@@ -2957,10 +2609,9 @@ SnowPlow.Tracker = function Tracker(argmap) {
         * @param string label (optional) An optional string to provide additional dimensions to the event data
         * @param string property (optional) Describes the object or the action performed on it, e.g. quantity of item added to basket
         * @param int|float|string value (optional) An integer that you can use to provide numerical data about the user event
-        * @param object Custom context relating to the event
         */
-        trackStructEvent: function (category, action, label, property, value, context) {
-            logStructEvent(category, action, label, property, value, context);
+        trackStructEvent: function (category, action, label, property, value) {
+            logStructEvent(category, action, label, property, value);
         },
 
         /**
@@ -2968,10 +2619,9 @@ SnowPlow.Tracker = function Tracker(argmap) {
         *
         * @param string name The name of the event
         * @param object properties The properties of the event
-        * @param object Custom context relating to the event
         */
-        trackUnstructEvent: function (name, properties, context) {
-            logUnstructEvent(name, properties, context);
+        trackUnstructEvent: function (name, properties) {
+            logUnstructEvent(name, properties);
         },
 
         /**
@@ -2986,9 +2636,8 @@ SnowPlow.Tracker = function Tracker(argmap) {
         * @param string state Optional. State to associate with transaction.
         * @param string country Optional. Country to associate with transaction.
         * @param string currency Optional. Currency to associate with this transaction.
-        * @param object context Option. Context relating to the event.
         */
-        addTrans: function (orderId, affiliation, total, tax, shipping, city, state, country, currency, context) {
+        addTrans: function (orderId, affiliation, total, tax, shipping, city, state, country, currency) {
             ecommerceTransaction.transaction = {
                 orderId: orderId,
                 affiliation: affiliation,
@@ -2998,8 +2647,7 @@ SnowPlow.Tracker = function Tracker(argmap) {
                 city: city,
                 state: state,
                 country: country,
-                currency: currency,
-                context: context
+                currency: currency
             };
         },
 
@@ -3013,9 +2661,8 @@ SnowPlow.Tracker = function Tracker(argmap) {
         * @param string price Required. Product price.
         * @param string quantity Required. Purchase quantity.
         * @param string currency Optional. Product price currency.
-        * @param object context Option. Context relating to the event.
         */
-        addItem: function (orderId, sku, name, category, price, quantity, currency, context) {
+        addItem: function (orderId, sku, name, category, price, quantity, currency) {
             ecommerceTransaction.items.push({
                 orderId: orderId,
                 sku: sku,
@@ -3023,8 +2670,7 @@ SnowPlow.Tracker = function Tracker(argmap) {
                 category: category,
                 price: price,
                 quantity: quantity,
-                currency: currency,
-                context: context
+                currency: currency
             });
         },
 
@@ -3044,8 +2690,7 @@ SnowPlow.Tracker = function Tracker(argmap) {
 					 ecommerceTransaction.transaction.city,
 					 ecommerceTransaction.transaction.state,
 					 ecommerceTransaction.transaction.country,
-					 ecommerceTransaction.transaction.currency,
-					 ecommerceTransaction.transaction.context
+					 ecommerceTransaction.transaction.currency
 					);
             for (var i = 0; i < ecommerceTransaction.items.length; i++) {
                 var item = ecommerceTransaction.items[i];
@@ -3056,8 +2701,7 @@ SnowPlow.Tracker = function Tracker(argmap) {
 					item.category,
 					item.price,
 					item.quantity,
-					item.currency,
-					item.context
+					item.currency
 					);
             }
 
@@ -3073,12 +2717,11 @@ SnowPlow.Tracker = function Tracker(argmap) {
         *
         * @param string sourceUrl
         * @param string linkType
-        * @param object Custom context relating to the event
         */
         // TODO: break this into trackLink(destUrl) and trackDownload(destUrl)
-        trackLink: function (sourceUrl, linkType, context) {
+        trackLink: function (sourceUrl, linkType) {
             trackCallback(function () {
-                logLink(sourceUrl, linkType, context);
+                logLink(sourceUrl, linkType);
             });
         },
 
@@ -3089,10 +2732,9 @@ SnowPlow.Tracker = function Tracker(argmap) {
         * @param string campaignId (optional) Identifier for the campaign which the banner belongs to
         * @param string advertiserId (optional) Identifier for the advertiser which the campaign belongs to
         * @param string userId (optional) Ad server identifier for the viewer of the banner
-        * @param object Custom context relating to the event
         */
-        trackImpression: function (bannerId, campaignId, advertiserId, userId, context) {
-            logImpression(bannerId, campaignId, advertiserId, userId, context);
+        trackImpression: function (bannerId, campaignId, advertiserId, userId) {
+            logImpression(bannerId, campaignId, advertiserId, userId);
         }
 
         // TODO: add in ad clicks and conversions
