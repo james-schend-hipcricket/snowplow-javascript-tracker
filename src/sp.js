@@ -36,358 +36,6 @@
 
 
 
-// ***** File: \js\lib\json.js *****
-
-/*
- * json2.js
- *
- * @description Creates a global JSON2 object
- * @version     N/A
- * @author      Douglas Crockford (https://github.com/douglascrockford)
- * @license     Public Domain
- * @link        https://github.com/douglascrockford/JSON-js/raw/master/json2.js
- *
- * Modifications:
- * - None
- */
-
-/*jslint evil: true, regexp: false, bitwise: true */
-/*global JSON2 */
-/*members "", "\b", "\t", "\n", "\f", "\r", "\"", JSON2, "\\", apply,
-	call, charCodeAt, getUTCDate, getUTCFullYear, getUTCHours,
-	getUTCMinutes, getUTCMonth, getUTCSeconds, hasOwnProperty, join,
-	lastIndex, length, parse, prototype, push, replace, slice, stringify,
-	test, toJSON, toString, valueOf,
-	objectToJSON
-*/
-
-// Create a JSON object only if one does not already exist. We create the
-// methods in a closure to avoid creating global variables.
-if (!this.JSON2) {
-	this.JSON2 = {};
-}
-
-(function () {
-	"use strict";
-
-	function f(n) {
-		// Format integers to have at least two digits.
-		return n < 10 ? '0' + n : n;
-	}
-
-	function objectToJSON(value, key) {
-		var objectType = Object.prototype.toString.apply(value);
-
-		if (objectType === '[object Date]') {
-			return isFinite(value.valueOf()) ?
-					value.getUTCFullYear()     + '-' +
-					f(value.getUTCMonth() + 1) + '-' +
-					f(value.getUTCDate())      + 'T' +
-					f(value.getUTCHours())     + ':' +
-					f(value.getUTCMinutes())   + ':' +
-					f(value.getUTCSeconds())   + 'Z' : null;
-		}
-
-		if (objectType === '[object String]' ||
-				objectType === '[object Number]' ||
-				objectType === '[object Boolean]') {
-			return value.valueOf();
-		}
-
-		if (objectType !== '[object Array]' &&
-				typeof value.toJSON === 'function') {
-			return value.toJSON(key);
-		}
-
-		return value;
-	}
-
-	var cx = new RegExp('[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]', 'g'),
-	// hack: workaround Snort false positive (sid 8443)
-		pattern = '\\\\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]',
-		escapable = new RegExp('[' + pattern, 'g'),
-		gap,
-		indent,
-		meta = {    // table of character substitutions
-			'\b': '\\b',
-			'\t': '\\t',
-			'\n': '\\n',
-			'\f': '\\f',
-			'\r': '\\r',
-			'"' : '\\"',
-			'\\': '\\\\'
-		},
-		rep;
-
-	function quote(string) {
-
-// If the string contains no control characters, no quote characters, and no
-// backslash characters, then we can safely slap some quotes around it.
-// Otherwise we must also replace the offending characters with safe escape
-// sequences.
-
-		escapable.lastIndex = 0;
-		return escapable.test(string) ? '"' + string.replace(escapable, function (a) {
-			var c = meta[a];
-			return typeof c === 'string' ? c :
-					'\\u' + ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
-		}) + '"' : '"' + string + '"';
-	}
-
-	function str(key, holder) {
-
-// Produce a string from holder[key].
-
-		var i,          // The loop counter.
-			k,          // The member key.
-			v,          // The member value.
-			length,
-			mind = gap,
-			partial,
-			value = holder[key];
-
-// If the value has a toJSON method, call it to obtain a replacement value.
-
-		if (value && typeof value === 'object') {
-			value = objectToJSON(value, key);
-		}
-
-// If we were called with a replacer function, then call the replacer to
-// obtain a replacement value.
-
-		if (typeof rep === 'function') {
-			value = rep.call(holder, key, value);
-		}
-
-// What happens next depends on the value's type.
-
-		switch (typeof value) {
-		case 'string':
-			return quote(value);
-
-		case 'number':
-
-// JSON numbers must be finite. Encode non-finite numbers as null.
-
-			return isFinite(value) ? String(value) : 'null';
-
-		case 'boolean':
-		case 'null':
-
-// If the value is a boolean or null, convert it to a string. Note:
-// typeof null does not produce 'null'. The case is included here in
-// the remote chance that this gets fixed someday.
-
-			return String(value);
-
-// If the type is 'object', we might be dealing with an object or an array or
-// null.
-
-		case 'object':
-
-// Due to a specification blunder in ECMAScript, typeof null is 'object',
-// so watch out for that case.
-
-			if (!value) {
-				return 'null';
-			}
-
-// Make an array to hold the partial results of stringifying this object value.
-
-			gap += indent;
-			partial = [];
-
-// Is the value an array?
-
-			if (Object.prototype.toString.apply(value) === '[object Array]') {
-
-// The value is an array. Stringify every element. Use null as a placeholder
-// for non-JSON values.
-
-				length = value.length;
-				for (i = 0; i < length; i += 1) {
-					partial[i] = str(i, value) || 'null';
-				}
-
-// Join all of the elements together, separated with commas, and wrap them in
-// brackets.
-
-				v = partial.length === 0 ? '[]' : gap ?
-						'[\n' + gap + partial.join(',\n' + gap) + '\n' + mind + ']' :
-						'[' + partial.join(',') + ']';
-				gap = mind;
-				return v;
-			}
-
-// If the replacer is an array, use it to select the members to be stringified.
-
-			if (rep && typeof rep === 'object') {
-				length = rep.length;
-				for (i = 0; i < length; i += 1) {
-					if (typeof rep[i] === 'string') {
-						k = rep[i];
-						v = str(k, value);
-						if (v) {
-							partial.push(quote(k) + (gap ? ': ' : ':') + v);
-						}
-					}
-				}
-			} else {
-
-// Otherwise, iterate through all of the keys in the object.
-
-				for (k in value) {
-					if (Object.prototype.hasOwnProperty.call(value, k)) {
-						v = str(k, value);
-						if (v) {
-							partial.push(quote(k) + (gap ? ': ' : ':') + v);
-						}
-					}
-				}
-			}
-
-// Join all of the member texts together, separated with commas,
-// and wrap them in braces.
-
-			v = partial.length === 0 ? '{}' : gap ?
-					'{\n' + gap + partial.join(',\n' + gap) + '\n' + mind + '}' :
-					'{' + partial.join(',') + '}';
-			gap = mind;
-			return v;
-		}
-	}
-
-// If the JSON object does not yet have a stringify method, give it one.
-
-	if (typeof JSON2.stringify !== 'function') {
-		JSON2.stringify = function (value, replacer, space) {
-
-// The stringify method takes a value and an optional replacer, and an optional
-// space parameter, and returns a JSON text. The replacer can be a function
-// that can replace values, or an array of strings that will select the keys.
-// A default replacer method can be provided. Use of the space parameter can
-// produce text that is more easily readable.
-
-			var i;
-			gap = '';
-			indent = '';
-
-// If the space parameter is a number, make an indent string containing that
-// many spaces.
-
-			if (typeof space === 'number') {
-				for (i = 0; i < space; i += 1) {
-					indent += ' ';
-				}
-
-// If the space parameter is a string, it will be used as the indent string.
-
-			} else if (typeof space === 'string') {
-				indent = space;
-			}
-
-// If there is a replacer, it must be a function or an array.
-// Otherwise, throw an error.
-
-			rep = replacer;
-			if (replacer && typeof replacer !== 'function' &&
-					(typeof replacer !== 'object' ||
-					typeof replacer.length !== 'number')) {
-				throw new Error('JSON.stringify');
-			}
-
-// Make a fake root object containing our value under the key of ''.
-// Return the result of stringifying the value.
-
-			return str('', {'': value});
-		};
-	}
-
-// If the JSON object does not yet have a parse method, give it one.
-
-	if (typeof JSON2.parse !== 'function') {
-		JSON2.parse = function (text, reviver) {
-
-// The parse method takes a text and an optional reviver function, and returns
-// a JavaScript value if the text is a valid JSON text.
-
-			var j;
-
-			function walk(holder, key) {
-
-// The walk method is used to recursively walk the resulting structure so
-// that modifications can be made.
-
-				var k, v, value = holder[key];
-				if (value && typeof value === 'object') {
-					for (k in value) {
-						if (Object.prototype.hasOwnProperty.call(value, k)) {
-							v = walk(value, k);
-							if (v !== undefined) {
-								value[k] = v;
-							} else {
-								delete value[k];
-							}
-						}
-					}
-				}
-				return reviver.call(holder, key, value);
-			}
-
-// Parsing happens in four stages. In the first stage, we replace certain
-// Unicode characters with escape sequences. JavaScript handles many characters
-// incorrectly, either silently deleting them, or treating them as line endings.
-
-			text = String(text);
-			cx.lastIndex = 0;
-			if (cx.test(text)) {
-				text = text.replace(cx, function (a) {
-					return '\\u' +
-						('0000' + a.charCodeAt(0).toString(16)).slice(-4);
-				});
-			}
-
-// In the second stage, we run the text against regular expressions that look
-// for non-JSON patterns. We are especially concerned with '()' and 'new'
-// because they can cause invocation, and '=' because it can cause mutation.
-// But just to be safe, we want to reject all unexpected forms.
-
-// We split the second stage into 4 regexp operations in order to work around
-// crippling inefficiencies in IE's and Safari's regexp engines. First we
-// replace the JSON backslash pairs with '@' (a non-JSON character). Second, we
-// replace all simple value tokens with ']' characters. Third, we delete all
-// open brackets that follow a colon or comma or that begin the text. Finally,
-// we look to see that the remaining characters are only whitespace or ']' or
-// ',' or ':' or '{' or '}'. If that is so, then the text is safe for eval.
-
-			if ((new RegExp('^[\\],:{}\\s]*$'))
-					.test(text.replace(new RegExp('\\\\(?:["\\\\/bfnrt]|u[0-9a-fA-F]{4})', 'g'), '@')
-						.replace(new RegExp('"[^"\\\\\n\r]*"|true|false|null|-?\\d+(?:\\.\\d*)?(?:[eE][+\\-]?\\d+)?', 'g'), ']')
-						.replace(new RegExp('(?:^|:|,)(?:\\s*\\[)+', 'g'), ''))) {
-
-// In the third stage we use the eval function to compile the text into a
-// JavaScript structure. The '{' operator is subject to a syntactic ambiguity
-// in JavaScript: it can begin a block or an object literal. We wrap the text
-// in parens to eliminate the ambiguity.
-
-				j = eval('(' + text + ')');
-
-// In the optional fourth stage, we recursively walk the new structure, passing
-// each name/value pair to a reviver function for possible transformation.
-
-				return typeof reviver === 'function' ?
-						walk({'': j}, '') : j;
-			}
-
-// If the text is not JSON parseable, then a SyntaxError is thrown.
-
-			throw new SyntaxError('JSON.parse');
-		};
-	}
-}());
-
-
-
 // ***** File: \js\lib\jstz.js *****
 
 /*
@@ -1484,7 +1132,7 @@ SnowPlow.base64decode = function(data) {
  * JavaScript tracker for Snowplow: tracker.js
  * 
  * Significant portions copyright 2010 Anthon Pang. Remainder copyright 
- * 2012-2014 Snowplow Analytics Ltd. All rights reserved. 
+ * 2012-2013 Snowplow Analytics Ltd. All rights reserved. 
  * 
  * Redistribution and use in source and binary forms, with or without 
  * modification, are permitted provided that the following conditions are 
@@ -1550,7 +1198,7 @@ SnowPlow.Tracker = function Tracker(argmap) {
 		// Request method is always GET for SnowPlow
 		configRequestMethod = 'GET',
 
-		// Platform defaults to web for this tracker
+		// Platform is always web for this tracker
 		configPlatform = 'web',
 
 		// SnowPlow collector URL
@@ -1959,6 +1607,7 @@ SnowPlow.Tracker = function Tracker(argmap) {
 	 * Load visitor ID cookie
 	 */
 	function loadDomainUserIdCookie() {
+
 		var now = new Date(),
 			nowTs = Math.round(now.getTime() / 1000),
 			id = getCookieValue('id'),
@@ -1972,11 +1621,7 @@ SnowPlow.Tracker = function Tracker(argmap) {
 			// Domain - generate a pseudo-unique ID to fingerprint this user;
 			// Note: this isn't a RFC4122-compliant UUID
 			if (!domainUserId) {
-				domainUserId = hash(
-					(SnowPlow.navigatorAlias.userAgent || '') +
-						(SnowPlow.navigatorAlias.platform || '') +
-						JSON2.stringify(browserFeatures) + nowTs
-				).slice(0, 16); // 16 hexits = 64 bits
+			    domainUserId = getDomainUserIdCookie();
 			}
 
 			tmpContainer = [
@@ -1995,6 +1640,35 @@ SnowPlow.Tracker = function Tracker(argmap) {
 			];
 		}
 		return tmpContainer;
+	}
+
+	function getDomainUserIdCookie() {
+	    var cookie = '';
+
+	    while (cookie.length < 8) {
+	        cookie += String(Math.floor(Math.random() * 100000));
+	    }
+
+	    if (cookie.length > 8) {
+	        cookie = cookie.substring(0, 8);
+	    }
+
+	    cookie += '-';
+
+	    function pad(n) {
+	        return n < 10 ? '0' + n : n
+	    }
+
+	    var d = new Date();
+
+	    cookie += d.getUTCFullYear()
+            + pad(d.getUTCMonth() + 1)
+            + pad(d.getUTCDate())
+            + pad(d.getUTCHours())
+            + pad(d.getUTCMinutes())
+            + pad(d.getUTCSeconds());
+
+	    return cookie;
 	}
 
 	/*
@@ -2131,133 +1805,178 @@ SnowPlow.Tracker = function Tracker(argmap) {
 	 * an optional initial value plus a set of individual
 	 * name-value pairs, provided using the add method.
 	 *
-	 * @param boolean base64Encode Whether or not JSONs should be
-	 * Base64-URL-safe-encoded
+	 * @param string initialValue The initial querystring, ready to have additional key-value pairs added
 	 *
 	 * @return object The request string builder, with add, addRaw and build methods
 	 */
-	function requestStringBuilder(base64Encode) {
-		var str = '';
-		
-		var addNvPair = function (key, value, encode) {
-			if (SnowPlow.isNonEmptyString(value)) {
+	function requestStringBuilder(initialValue) {
+		var str = initialValue || '';
+		var addNvPair = function(key, value, encode) {
+			if (value !== undefined && value !== '') {
 				var sep = (str.length > 0) ? "&" : "?";
 				str += sep + key + '=' + (encode ? SnowPlow.encodeWrapper(value) : value);
 			}
 		};
-
-		/*
-		 * Extract suffix from a property
-		 */
-		var getPropertySuffix = function (property) {
-			var e = new RegExp('\\$(.[^\\$]+)$'),
-			    matches = e.exec(property);
-
-			if (matches) return matches[1];
-		};
-
-		/*
-		 * Translates a value of an unstructured date property
-		 */
-		var translateDateValue = function (date, type) {
-		  switch (type) {
-		    case 'tms':
-		      return SnowPlow.toTimestamp(date, true);
-		    case 'ts':
-		      return SnowPlow.toTimestamp(date, false);
-		    case 'dt':
-		      return SnowPlow.toDatestamp(date);
-		    default:
-		      return date;
-		  }
-		};
-
-		/*
-		 * Add type suffixes as needed to JSON properties
-		 */
-		var appendTypes = (function() {
-
-			function recurse(json) {
-				var translated = {};
-				for (var prop in json) {
-					var key = prop, value = json[prop];
-
-					// Special treatment...
-					if (json.hasOwnProperty(key)) {
-
-						// ... for JavaScript Dates
-						if (SnowPlow.isDate(value)) {
-							type = getPropertySuffix(key);
-							if (!type) {
-								type = 'tms';
-								key += '$' + type;
-							}
-							value = translateDateValue(value, type);
-						}
-
-						// ... for JSON objects
-						if (SnowPlow.isJson(value)) {
-							value = recurse(value);
-						}
-
-						// TODO: should think about Arrays of Dates too
-					}
-
-					translated[key] = value;
-				}
-				return translated;
-			}
-			return recurse;
-		})();
-
-		var add = function (key, value) {
-			addNvPair(key, value, true);
-		};
-
-		var addRaw = function (key, value) {
-			addNvPair(key, value, false);
-		};
-
-		var addJson = function (keyIfEncoded, keyIfNotEncoded, json) {
-			
-			if (SnowPlow.isNonEmptyJson(json)) {
-				var typed = appendTypes(json);
-				var str = JSON2.stringify(typed);
-
-				if (base64Encode) {
-					addRaw(keyIfEncoded, SnowPlow.base64urlencode(str));
-				} else {
-					add(keyIfNotEncoded, str);
-				}
-			}
-		};
-
 		return {
-			add: add,
-			addRaw: addRaw,
-			addJson: addJson,
+			add: function(key, value) {
+				addNvPair(key, value, true);
+			},
+			addRaw: function(key, value) {
+				addNvPair(key, value, false);
+			},
 			build: function() {
 				return str;
 			}
-		};
+		}
+	}
+
+	/**
+	 * Log a structured event happening on this page
+	 *
+	 * @param string category The name you supply for the group of objects you want to track
+	 * @param string action A string that is uniquely paired with each category, and commonly used to define the type of user interaction for the web object
+	 * @param string label (optional) An optional string to provide additional dimensions to the event data
+	 * @param string property (optional) Describes the object or the action performed on it, e.g. quantity of item added to basket
+	 * @param numeric value (optional) An integer or floating point number to provide numerical data about the user event
+	 */
+	function logStructEvent(category, action, label, property, value) {
+		var sb = requestStringBuilder();
+		sb.add('e', 'se'); // 'se' for Structured Event
+		sb.add('se_ca', category);
+		sb.add('se_ac', action)
+		sb.add('se_la', label);
+		sb.add('se_pr', property);
+		sb.add('se_va', value);
+		request = getRequest(sb, 'structEvent');
+		sendRequest(request, configTrackerPause);
+	}
+
+	/**
+	 * Log an unstructured event happening on this page
+	 *
+	 * @param string name The name of the event
+	 * @param object properties The properties of the event
+	 */
+	//function logUnstructEvent(name, properties) {
+	//	var sb = requestStringBuilder();
+	//	sb.add('e', 'ue'); // 'ue' for Unstructured Event
+	//	sb.add('ue_na', name);
+
+	//	var translated = {}
+	//	for(var p in properties) {
+	//		var key = p, value = properties[p];
+	//		if (properties.hasOwnProperty(p) && SnowPlow.isDate(properties[p])) {
+	//			type = SnowPlow.getPropertySuffix(p);
+	//			if(!type) {
+    //      type = 'tms'
+    //      key += '$' + type
+    //    }
+    //    value = SnowPlow.translateDateValue(value, type);
+	//		};
+	//		translated[key] = value;
+	//	}
+
+	//	pr_string = JSON2.stringify(translated);
+	//	if(configEncodeBase64) {
+	//	  sb.addRaw('ue_px', SnowPlow.base64urlencode(pr_string));
+	//	} else {
+	//	  sb.add('ue_pr', pr_string);
+	//	};
+	//	request = getRequest(sb, 'unstructEvent');
+	//	sendRequest(request, configTrackerPause);
+	//}
+
+	/**
+	 * Log an ad impression
+	 *
+	 * @param string bannerId Identifier for the ad banner displayed
+	 * @param string campaignId (optional) Identifier for the campaign which the banner belongs to
+	 * @param string advertiserId (optional) Identifier for the advertiser which the campaign belongs to
+	 * @param string userId (optional) Ad server identifier for the viewer of the banner
+	 */
+	// TODO: rename to logAdImpression and deprecate logImpression
+	// TODO: should add impressionId as well.
+	// TODO: should add in zoneId (aka placementId, slotId?) as well
+	// TODO: change ad_ to ai_?
+	function logImpression(bannerId, campaignId, advertiserId, userId) {
+		var sb = requestStringBuilder();
+		sb.add('e', 'ad'); // 'ad' for AD impression
+		sb.add('ad_ba', bannerId);
+		sb.add('ad_ca', campaignId)
+		sb.add('ad_ad', advertiserId);
+		sb.add('ad_uid', userId);
+		request = getRequest(sb, 'impression');
+		sendRequest(request, configTrackerPause);
+	}
+
+	// TODO: add in ad clicks
+
+	/**
+	 * Log ecommerce transaction metadata
+	 *
+	 * @param string orderId 
+	 * @param string affiliation 
+	 * @param string total 
+	 * @param string tax 
+ 	 * @param string shipping 
+	 * @param string city 
+ 	 * @param string state 
+ 	 * @param string country 
+	 */
+	// TODO: add params to comment
+	function logTransaction(orderId, affiliation, total, tax, shipping, city, state, country) {
+		var sb = requestStringBuilder();
+		sb.add('e', 'tr'); // 'tr' for TRansaction
+		sb.add('tr_id', orderId);
+		sb.add('tr_af', affiliation);
+		sb.add('tr_tt', total);
+		sb.add('tr_tx', tax);
+		sb.add('tr_sh', shipping);
+		sb.add('tr_ci', city);
+		sb.add('tr_st', state);
+		sb.add('tr_co', country);
+		var request = getRequest(sb, 'transaction');
+		sendRequest(request, configTrackerPause);
+	}
+
+	/**
+	 * Log ecommerce transaction item
+	 *
+	 * @param string orderId
+	 * @param string sku
+	 * @param string name
+	 * @param string category
+	 * @param string price
+	 * @param string quantity
+	 */
+	// TODO: add params to comment
+	function logTransactionItem(orderId, sku, name, category, price, quantity) {
+		var sb = requestStringBuilder();
+		sb.add('e', 'ti'); // 'ti' for Transaction Item
+		sb.add('ti_id', orderId);
+		sb.add('ti_sk', sku);
+		sb.add('ti_na', name);
+		sb.add('ti_ca', category);
+		sb.add('ti_pr', price);
+		sb.add('ti_qu', quantity);
+		var request = getRequest(sb, 'transactionItem');
+		sendRequest(request, configTrackerPause);
 	}
 
 	/*
 	 * Log the page view / visit
 	 *
 	 * @param string customTitle The user-defined page title to attach to this page view
-	 * @param object context Custom context relating to the event
 	 */
-	function logPageView(customTitle, context) {
+	function logPageView(customTitle) {
 
 		// Fixup page title. We'll pass this to logPagePing too.
 		var pageTitle = SnowPlow.fixupTitle(customTitle || configTitle);
 
 		// Log page view
-		var sb = requestStringBuilder(configEncodeBase64);
+		var sb = requestStringBuilder();
 		sb.add('e', 'pv'); // 'pv' for Page View
 		sb.add('page', pageTitle);
-		sb.addJson('cx', 'co', context);
 		var request = getRequest(sb, 'pageView');
 		sendRequest(request, configTrackerPause);
 
@@ -2295,7 +2014,7 @@ SnowPlow.Tracker = function Tracker(argmap) {
 				if ((lastActivityTime + configHeartBeatTimer) > now.getTime()) {
 					// Send ping if minimum visit time has elapsed
 					if (configMinimumVisitTime < now.getTime()) {
-						logPagePing(pageTitle, context); // Grab the min/max globals
+						logPagePing(pageTitle); // Grab the min/max globals
 					}
 				}
 			}, configHeartBeatTimer);
@@ -2309,170 +2028,36 @@ SnowPlow.Tracker = function Tracker(argmap) {
 	 * logPageView() above.
 	 *
 	 * @param string pageTitle The page title to attach to this page ping
-	 * @param object context Custom context relating to the event
 	 */
-	function logPagePing(pageTitle, context) {
-		var sb = requestStringBuilder(configEncodeBase64);
+	function logPagePing(pageTitle) {
+		var sb = requestStringBuilder();
 		sb.add('e', 'pp'); // 'pp' for Page Ping
 		sb.add('page', pageTitle);
 		sb.addRaw('pp_mix', minXOffset); // Global
 		sb.addRaw('pp_max', maxXOffset); // Global
 		sb.addRaw('pp_miy', minYOffset); // Global
 		sb.addRaw('pp_may', maxYOffset); // Global
-		sb.addJson('cx', 'co', context);
 		resetMaxScrolls();
 		var request = getRequest(sb, 'pagePing');
 		sendRequest(request, configTrackerPause);
 	}
-
-	/**
-	 * Log a structured event happening on this page
-	 *
-	 * @param string category The name you supply for the group of objects you want to track
-	 * @param string action A string that is uniquely paired with each category, and commonly used to define the type of user interaction for the web object
-	 * @param string label (optional) An optional string to provide additional dimensions to the event data
-	 * @param string property (optional) Describes the object or the action performed on it, e.g. quantity of item added to basket
-	 * @param numeric value (optional) An integer or floating point number to provide numerical data about the user event
-	 * @param object context Custom context relating to the event
-	 */
-	function logStructEvent(category, action, label, property, value, context) {
-		var sb = requestStringBuilder(configEncodeBase64);
-		sb.add('e', 'se'); // 'se' for Structured Event
-		sb.add('se_ca', category);
-		sb.add('se_ac', action)
-		sb.add('se_la', label);
-		sb.add('se_pr', property);
-		sb.add('se_va', value);
-		sb.addJson('cx', 'co', context);
-		request = getRequest(sb, 'structEvent');
-		sendRequest(request, configTrackerPause);
-	}
-
-	/**
-	 * Log an unstructured event happening on this page
-	 *
-	 * @param string name The name of the event
-	 * @param object properties The properties of the event
-	 * @param object context Custom context relating to the event
-	 */
-	function logUnstructEvent(name, properties, context) {
-		var sb = requestStringBuilder(configEncodeBase64);
-		sb.add('e', 'ue'); // 'ue' for Unstructured Event
-		sb.add('ue_na', name);
-		sb.addJson('ue_px', 'ue_pr', properties);
-		sb.addJson('cx', 'co', context);
-		request = getRequest(sb, 'unstructEvent');
-		sendRequest(request, configTrackerPause);
-	}
-
-	/**
-	 * Log ecommerce transaction metadata
-	 *
-	 * @param string orderId 
-	 * @param string affiliation 
-	 * @param string total 
-	 * @param string tax 
- 	 * @param string shipping 
-	 * @param string city 
- 	 * @param string state 
- 	 * @param string country 
- 	 * @param string currency The currency the total/tax/shipping are expressed in
-	 * @param object context Custom context relating to the event
-	 */
-	// TODO: add params to comment
-	function logTransaction(orderId, affiliation, total, tax, shipping, city, state, country, currency, context) {
-		var sb = requestStringBuilder(configEncodeBase64);
-		sb.add('e', 'tr'); // 'tr' for TRansaction
-		sb.add('tr_id', orderId);
-		sb.add('tr_af', affiliation);
-		sb.add('tr_tt', total);
-		sb.add('tr_tx', tax);
-		sb.add('tr_sh', shipping);
-		sb.add('tr_ci', city);
-		sb.add('tr_st', state);
-		sb.add('tr_co', country);
-		sb.add('tr_cu', currency);
-		sb.addJson('cx', 'co', context);
-		var request = getRequest(sb, 'transaction');
-		sendRequest(request, configTrackerPause);
-	}
-
-	/**
-	 * Log ecommerce transaction item
-	 *
-	 * @param string orderId
-	 * @param string sku
-	 * @param string name
-	 * @param string category
-	 * @param string price
-	 * @param string quantity
-	 * @param string currency The currency the price is expressed in
-	 * @param object context Custom context relating to the event
-	 */
-	// TODO: add params to comment
-	function logTransactionItem(orderId, sku, name, category, price, quantity, currency, context) {
-		var sb = requestStringBuilder(configEncodeBase64);
-		sb.add('e', 'ti'); // 'ti' for Transaction Item
-		sb.add('ti_id', orderId);
-		sb.add('ti_sk', sku);
-		sb.add('ti_na', name);
-		sb.add('ti_ca', category);
-		sb.add('ti_pr', price);
-		sb.add('ti_qu', quantity);
-		sb.add('ti_cu', currency);
-		sb.addJson('cx', 'co', context);
-		var request = getRequest(sb, 'transactionItem');
-		sendRequest(request, configTrackerPause);
-	}
-
-	// ---------------------------------------
-	// Next 2 log methods are not supported in
-	// Snowplow Enrichment process yet
 
 	/*
 	 * Log the link or click with the server
 	 *
 	 * @param string url The target URL
 	 * @param string linkType The type of link - link or download (see getLinkType() for details)
-	 * @param object context Custom context relating to the event
 	 */
 	// TODO: rename to LinkClick
 	// TODO: this functionality is not yet fully implemented.
 	// See https://github.com/snowplow/snowplow/issues/75
-	function logLink(url, linkType, context) {
-		var sb = requestStringBuilder(configEncodeBase64);
+	function logLink(url, linkType) {
+		var sb = requestStringBuilder();
 		sb.add('e', linkType);
 		sb.add('t_url', purify(url));
 		var request = getRequest(sb, 'link');
 		sendRequest(request, configTrackerPause);
 	}
-
-	/**
-	 * Log an ad impression
-	 *
-	 * @param string bannerId Identifier for the ad banner displayed
-	 * @param string campaignId (optional) Identifier for the campaign which the banner belongs to
-	 * @param string advertiserId (optional) Identifier for the advertiser which the campaign belongs to
-	 * @param string userId (optional) Ad server identifier for the viewer of the banner
-	 * @param object context Custom context relating to the event
-	 */
-	// TODO: rename to logAdImpression and deprecate logImpression
-	// TODO: should add impressionId as well.
-	// TODO: should add in zoneId (aka placementId, slotId?) as well
-	// TODO: change ad_ to ai_?
-	function logImpression(bannerId, campaignId, advertiserId, userId, context) {
-		var sb = requestStringBuilder(configEncodeBase64);
-		sb.add('e', 'ad'); // 'ad' for AD impression
-		sb.add('ad_ba', bannerId);
-		sb.add('ad_ca', campaignId)
-		sb.add('ad_ad', advertiserId);
-		sb.add('ad_uid', userId);
-		sb.addJson('cx', 'co', context);
-		request = getRequest(sb, 'impression');
-		sendRequest(request, configTrackerPause);
-	}
-
-	// TODO: add in ad clicks and conversions
 
 	/*
 	 * Browser prefix
@@ -3180,6 +2765,30 @@ SnowPlow.Tracker = function Tracker(argmap) {
 		},
 
 		/**
+		 * Manually log a click from your own code
+		 *
+		 * @param string sourceUrl
+		 * @param string linkType
+		 */
+		// TODO: break this into trackLink(destUrl) and trackDownload(destUrl)
+		trackLink: function (sourceUrl, linkType) {
+			trackCallback(function () {
+				logLink(sourceUrl, linkType);
+			});
+		},
+
+		/**
+		 * Log visit to this page
+		 *
+		 * @param string customTitle
+		 */
+		trackPageView: function (customTitle) {
+			trackCallback(function () {
+				logPageView(customTitle);
+			});
+		},
+
+		/**
 		 * Set the business-defined user ID for this user.
 		 *
 		 * @param string userId The business-defined user ID
@@ -3225,15 +2834,6 @@ SnowPlow.Tracker = function Tracker(argmap) {
 		},
 
 		/**
-		 * Specify the platform
-		 *
-		 * @param string userId The business-defined user ID
-		 */
-		setPlatform: function(platform) {
-			configPlatform = platform;
-		},
-
-		/**
 		 *
 		 * Enable Base64 encoding for unstructured event payload
 		 *
@@ -3242,20 +2842,6 @@ SnowPlow.Tracker = function Tracker(argmap) {
 		encodeBase64: function (enabled) {
 			configEncodeBase64 = enabled;
 		},
-
-		/**
-		 * Log visit to this page
-		 *
-		 * @param string customTitle
-		 * @param object Custom context relating to the event
-		 */
-		trackPageView: function (customTitle, context) {
-			trackCallback(function () {
-				logPageView(customTitle, context);
-			});
-		},
-
-		// No public method to track a page ping
 
 		/**
 		 * Track an event happening on this page
@@ -3287,10 +2873,9 @@ SnowPlow.Tracker = function Tracker(argmap) {
 		 * @param string label (optional) An optional string to provide additional dimensions to the event data
 		 * @param string property (optional) Describes the object or the action performed on it, e.g. quantity of item added to basket
 		 * @param int|float|string value (optional) An integer that you can use to provide numerical data about the user event
-		 * @param object Custom context relating to the event
 		 */
-		trackStructEvent: function (category, action, label, property, value, context) {
-			logStructEvent(category, action, label, property, value, context);                   
+		trackStructEvent: function (category, action, label, property, value) {
+			logStructEvent(category, action, label, property, value);                   
 		},
 
 		/**
@@ -3298,11 +2883,22 @@ SnowPlow.Tracker = function Tracker(argmap) {
 		 *
 		 * @param string name The name of the event
 		 * @param object properties The properties of the event
-		 * @param object Custom context relating to the event
 		 */
-		trackUnstructEvent: function (name, properties, context) {
-			logUnstructEvent(name, properties, context);
+		trackUnstructEvent: function (name, properties) {
+			//logUnstructEvent(name, properties);
 		},
+
+		/**
+		 * Track an ad being served
+		 *
+		 * @param string bannerId Identifier for the ad banner displayed
+		 * @param string campaignId (optional) Identifier for the campaign which the banner belongs to
+		 * @param string advertiserId (optional) Identifier for the advertiser which the campaign belongs to
+		 * @param string userId (optional) Ad server identifier for the viewer of the banner
+		 */
+		 trackImpression: function (bannerId, campaignId, advertiserId, userId) {
+				 logImpression(bannerId, campaignId, advertiserId, userId);
+		 },
 
 		/**
 		 * Track an ecommerce transaction
@@ -3315,11 +2911,9 @@ SnowPlow.Tracker = function Tracker(argmap) {
 		 * @param string city Optional. City to associate with transaction.
 		 * @param string state Optional. State to associate with transaction.
 		 * @param string country Optional. Country to associate with transaction.
-		 * @param string currency Optional. Currency to associate with this transaction.
-		 * @param object context Option. Context relating to the event.
 		 */
-		addTrans: function(orderId, affiliation, total, tax, shipping, city, state, country, currency, context) {
-			ecommerceTransaction.transaction = {
+		 addTrans: function(orderId, affiliation, total, tax, shipping, city, state, country) {
+			 ecommerceTransaction.transaction = {
 				 orderId: orderId,
 				 affiliation: affiliation,
 				 total: total,
@@ -3327,11 +2921,8 @@ SnowPlow.Tracker = function Tracker(argmap) {
 				 shipping: shipping,
 				 city: city,
 				 state: state,
-				 country: country,
-				 currency: currency,
-				 context: context
-			};
-		},
+				 country: country};
+		 },
 
 		/**
 		 * Track an ecommerce transaction item
@@ -3342,21 +2933,16 @@ SnowPlow.Tracker = function Tracker(argmap) {
 		 * @param string category Optional. Product category.
 		 * @param string price Required. Product price.
 		 * @param string quantity Required. Purchase quantity.
-		 * @param string currency Optional. Product price currency.
-		 * @param object context Option. Context relating to the event.
 		 */
-		addItem: function(orderId, sku, name, category, price, quantity, currency, context) {
-			ecommerceTransaction.items.push({
-				orderId: orderId,
-				sku: sku,
-				name: name,
-				category: category,
-				price: price,
-				quantity: quantity,
-				currency: currency,
-				context: context
-			});
-		},
+		 addItem: function(orderId, sku, name, category, price, quantity) {
+			 ecommerceTransaction.items.push({
+						orderId: orderId,
+						sku: sku,
+						name: name,
+						category: category,
+						price: price,
+						quantity: quantity});
+		 },
 
 		/**
 		 * Commit the ecommerce transaction
@@ -3364,7 +2950,7 @@ SnowPlow.Tracker = function Tracker(argmap) {
 		 * This call will send the data specified with addTrans,
 		 * addItem methods to the tracking server.
 		 */
-		trackTrans: function() {
+		 trackTrans: function() {
 			 logTransaction(
 					 ecommerceTransaction.transaction.orderId,
 					 ecommerceTransaction.transaction.affiliation,
@@ -3373,9 +2959,7 @@ SnowPlow.Tracker = function Tracker(argmap) {
 					 ecommerceTransaction.transaction.shipping,
 					 ecommerceTransaction.transaction.city,
 					 ecommerceTransaction.transaction.state,
-					 ecommerceTransaction.transaction.country,
-					 ecommerceTransaction.transaction.currency,
-					 ecommerceTransaction.transaction.context
+					 ecommerceTransaction.transaction.country
 					);
 			for (var i = 0; i < ecommerceTransaction.items.length; i++) {
         		var item = ecommerceTransaction.items[i];
@@ -3385,47 +2969,13 @@ SnowPlow.Tracker = function Tracker(argmap) {
 					item.name,
 					item.category,
 					item.price,
-					item.quantity,
-					item.currency,
-					item.context
+					item.quantity
 					);
 			}
 
 			ecommerceTransaction = ecommerceTransactionTemplate();
-		},
+		 }
 
-		// ---------------------------------------
-		// Next 2 track events not supported in
-		// Snowplow Enrichment process yet
-
-		/**
-		 * Manually log a click from your own code
-		 *
-		 * @param string sourceUrl
-		 * @param string linkType
-		 * @param object Custom context relating to the event
-		 */
-		// TODO: break this into trackLink(destUrl) and trackDownload(destUrl)
-		trackLink: function (sourceUrl, linkType, context) {
-			trackCallback(function () {
-				logLink(sourceUrl, linkType, context);
-			});
-		},
-
-		/**
-		 * Track an ad being served
-		 *
-		 * @param string bannerId Identifier for the ad banner displayed
-		 * @param string campaignId (optional) Identifier for the campaign which the banner belongs to
-		 * @param string advertiserId (optional) Identifier for the advertiser which the campaign belongs to
-		 * @param string userId (optional) Ad server identifier for the viewer of the banner
-		 * @param object Custom context relating to the event
-		 */
-		trackImpression: function (bannerId, campaignId, advertiserId, userId, context) {
-				 logImpression(bannerId, campaignId, advertiserId, userId, context);
-		}
-
-		// TODO: add in ad clicks and conversions
 	};
 }
 
