@@ -241,6 +241,13 @@ SnowPlow.encodeUtf8 = function (argString) {
 	return SnowPlow.decodeUrl(SnowPlow.encodeWrapper(argString));
 }
 
+SnowPlow.pad = function (num) {
+
+    var n = Math.floor(num);
+
+    return n < 10 ? '0' + n : n
+}
+
 /**
  * Cleans up the page title
  */
@@ -1325,18 +1332,15 @@ SnowPlow.Tracker = function Tracker(argmap) {
 
         cookie += '-';
 
-        function pad(n) {
-            return n < 10 ? '0' + n : n
-        }
 
         var d = new Date();
 
         cookie += d.getUTCFullYear()
-            + pad(d.getUTCMonth() + 1)
-            + pad(d.getUTCDate())
-            + pad(d.getUTCHours())
-            + pad(d.getUTCMinutes())
-            + pad(d.getUTCSeconds());
+            + SnowPlow.pad(d.getUTCMonth() + 1)
+            + SnowPlow.pad(d.getUTCDate())
+            + SnowPlow.pad(d.getUTCHours())
+            + SnowPlow.pad(d.getUTCMinutes())
+            + SnowPlow.pad(d.getUTCSeconds());
 
         return cookie;
     }
@@ -2032,7 +2036,16 @@ SnowPlow.Tracker = function Tracker(argmap) {
         //        var tz = jstz.determine();
         //        return (typeof (tz) === 'undefined') ? '' : tz.name();
         var tzo = new Date().getTimezoneOffset();
-        var tz = String(-tzo);
+
+        var hour = Math.floor(tzo / 60);
+        // Reverse sign
+        var sign = '+';
+        if (hour > 0) { sign = '-' };
+
+        hour = Math.abs(hour);
+        var min = Math.abs(tzo) % 60;
+
+        var tz = sign + SnowPlow.pad(hour) + SnowPlow.pad(min);
 
         return tz;
     }

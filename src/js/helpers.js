@@ -120,6 +120,13 @@ SnowPlow.encodeUtf8 = function (argString) {
 	return SnowPlow.decodeUrl(SnowPlow.encodeWrapper(argString));
 }
 
+SnowPlow.pad = function (num) {
+
+    var n = Math.floor(num);
+
+    return n < 10 ? '0' + n : n
+}
+
 /**
  * Cleans up the page title
  */
