@@ -71,7 +71,10 @@ var SnowPlow = SnowPlow || function() {
 		decodeUrl: unescape,
 
 		/* Asynchronous tracker */
-		asyncTracker: null
+		asyncTracker: null,
+
+	    /* Keep copy of the prototype for Date.getTime() */
+		savedGetTime: Date.prototype.getTime
 	}
 }();
 

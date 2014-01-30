@@ -72,200 +72,200 @@
 */
 
 SnowPlow.build = function () {
-		"use strict";
+    "use strict";
 
-		/************************************************************
-		 * Private methods
-		 ************************************************************/
+    /************************************************************
+     * Private methods
+     ************************************************************/
 
-		/*
-		 * apply wrapper
-		 *
-		 * @param array parameterArray An array comprising either:
-		 *      [ 'methodName', optional_parameters ]
-		 * or:
-		 *      [ functionObject, optional_parameters ]
-		 */
-		function apply() {
-			var i, f, parameterArray;
+    /*
+     * apply wrapper
+     *
+     * @param array parameterArray An array comprising either:
+     *      [ 'methodName', optional_parameters ]
+     * or:
+     *      [ functionObject, optional_parameters ]
+     */
+    function apply() {
+        var i, f, parameterArray;
 
-			for (i = 0; i < arguments.length; i += 1) {
-				parameterArray = arguments[i];
-				f = parameterArray.shift();
+        for (i = 0; i < arguments.length; i += 1) {
+            parameterArray = arguments[i];
+            f = parameterArray.shift();
 
-				if (SnowPlow.isString(f)) {
-					SnowPlow.asyncTracker[f].apply(SnowPlow.asyncTracker, parameterArray);
-				} else {
-					f.apply(SnowPlow.asyncTracker, parameterArray);
-				}
-			}
-		}
+            if (SnowPlow.isString(f)) {
+                SnowPlow.asyncTracker[f].apply(SnowPlow.asyncTracker, parameterArray);
+            } else {
+                f.apply(SnowPlow.asyncTracker, parameterArray);
+            }
+        }
+    }
 
-		/*
-		 * Handle beforeunload event
-		 *
-		 * Subject to Safari's "Runaway JavaScript Timer" and
-		 * Chrome V8 extension that terminates JS that exhibits
-		 * "slow unload", i.e., calling getTime() > 1000 times
-		 */
-		function beforeUnloadHandler() {
-			var now;
+    /*
+     * Handle beforeunload event
+     */
+    function beforeUnloadHandler() {
 
-			SnowPlow.executePluginMethod('unload');
+        SnowPlow.executePluginMethod('unload');
 
-			/*
-			 * Delay/pause (blocks UI)
-			 */
-			if (SnowPlow.expireDateTime) {
-				// the things we do for backwards compatibility...
-				// in ECMA-262 5th ed., we could simply use:
-				//     while (Date.now() < SnowPlow.expireDateTime) { }
-				do {
-					now = new Date();
-				} while (now.getTimeAlias() < SnowPlow.expireDateTime);
-			}
-		}
+        delayPage();
+    }
 
-		/*
-		 * Handler for onload event
-		 */
-		function loadHandler() {
-			var i;
+    function delayPage() {
+        var s = Number(new Date().getTime()) + 250;
+        var e = 0;
 
-			if (!SnowPlow.hasLoaded) {
-				SnowPlow.hasLoaded = true;
-				SnowPlow.executePluginMethod('load');
-				for (i = 0; i < SnowPlow.registeredOnLoadHandlers.length; i++) {
-					SnowPlow.registeredOnLoadHandlers[i]();
-				}
-			}
-			return true;
-		}
+        Date.prototype.getTime = SnowPlow.savedGetTime;
 
-		/*
-		 * Add onload or DOM ready handler
-		 */
-		function addReadyListener() {
-			var _timer;
+        for (var i = 0; e < s; i++) {
+            e = getTimeMS();
+        }
+    }
 
-			if (SnowPlow.documentAlias.addEventListener) {
-				SnowPlow.addEventListener(SnowPlow.documentAlias, 'DOMContentLoaded', function ready() {
-					SnowPlow.documentAlias.removeEventListener('DOMContentLoaded', ready, false);
-					loadHandler();
-				});
-			} else if (SnowPlow.documentAlias.attachEvent) {
-				SnowPlow.documentAlias.attachEvent('onreadystatechange', function ready() {
-					if (SnowPlow.documentAlias.readyState === 'complete') {
-						SnowPlow.documentAlias.detachEvent('onreadystatechange', ready);
-						loadHandler();
-					}
-				});
+    function getTimeMS() {
+        return Number(new Date().getTime());
+    }
 
-				if (SnowPlow.documentAlias.documentElement.doScroll && SnowPlow.windowAlias === SnowPlow.windowAlias.top) {
-					(function ready() {
-						if (!SnowPlow.hasLoaded) {
-							try {
-								SnowPlow.documentAlias.documentElement.doScroll('left');
-							} catch (error) {
-								setTimeout(ready, 0);
-								return;
-							}
-							loadHandler();
-						}
-					}());
-				}
-			}
+    /*
+     * Handler for onload event
+     */
+    function loadHandler() {
+        var i;
 
-			// sniff for older WebKit versions
-			if ((new RegExp('WebKit')).test(SnowPlow.navigatorAlias.userAgent)) {
-				_timer = setInterval(function () {
-					if (SnowPlow.hasLoaded || /loaded|complete/.test(SnowPlow.documentAlias.readyState)) {
-						clearInterval(_timer);
-						loadHandler();
-					}
-				}, 10);
-			}
+        if (!SnowPlow.hasLoaded) {
+            SnowPlow.hasLoaded = true;
+            SnowPlow.executePluginMethod('load');
+            for (i = 0; i < SnowPlow.registeredOnLoadHandlers.length; i++) {
+                SnowPlow.registeredOnLoadHandlers[i]();
+            }
+        }
+        return true;
+    }
 
-			// fallback
-			SnowPlow.addEventListener(SnowPlow.windowAlias, 'load', loadHandler, false);
-		}
+    /*
+     * Add onload or DOM ready handler
+     */
+    function addReadyListener() {
+        var _timer;
 
+        if (SnowPlow.documentAlias.addEventListener) {
+            SnowPlow.addEventListener(SnowPlow.documentAlias, 'DOMContentLoaded', function ready() {
+                SnowPlow.documentAlias.removeEventListener('DOMContentLoaded', ready, false);
+                loadHandler();
+            });
+        } else if (SnowPlow.documentAlias.attachEvent) {
+            SnowPlow.documentAlias.attachEvent('onreadystatechange', function ready() {
+                if (SnowPlow.documentAlias.readyState === 'complete') {
+                    SnowPlow.documentAlias.detachEvent('onreadystatechange', ready);
+                    loadHandler();
+                }
+            });
 
-		/************************************************************
-		 * Proxy object
-		 * - this allows the caller to continue push()'ing to _snaq
-		 *   after the Tracker has been initialized and loaded
-		 ************************************************************/
+            if (SnowPlow.documentAlias.documentElement.doScroll && SnowPlow.windowAlias === SnowPlow.windowAlias.top) {
+                (function ready() {
+                    if (!SnowPlow.hasLoaded) {
+                        try {
+                            SnowPlow.documentAlias.documentElement.doScroll('left');
+                        } catch (error) {
+                            setTimeout(ready, 0);
+                            return;
+                        }
+                        loadHandler();
+                    }
+                }());
+            }
+        }
 
-		function TrackerProxy() {
-			return {
-				push: apply
-			};
-		}
+        // sniff for older WebKit versions
+        if ((new RegExp('WebKit')).test(SnowPlow.navigatorAlias.userAgent)) {
+            _timer = setInterval(function () {
+                if (SnowPlow.hasLoaded || /loaded|complete/.test(SnowPlow.documentAlias.readyState)) {
+                    clearInterval(_timer);
+                    loadHandler();
+                }
+            }, 10);
+        }
 
-		/************************************************************
-		 * Constructor
-		 ************************************************************/
-
-		// initialize the SnowPlow singleton
-		SnowPlow.addEventListener(SnowPlow.windowAlias, 'beforeunload', beforeUnloadHandler, false);
-		addReadyListener();
-
-		Date.prototype.getTimeAlias = Date.prototype.getTime;
-
-		SnowPlow.asyncTracker = new SnowPlow.Tracker();
-
-		for (var i = 0; i < _snaq.length; i++) {
-			apply(_snaq[i]);
-		}
-
-		// replace initialization array with proxy object
-		_snaq = new TrackerProxy();
+        // fallback
+        SnowPlow.addEventListener(SnowPlow.windowAlias, 'load', loadHandler, false);
+    }
 
 
-		/************************************************************
-		 * Public data and methods
-		 ************************************************************/
+    /************************************************************
+     * Proxy object
+     * - this allows the caller to continue push()'ing to _snaq
+     *   after the Tracker has been initialized and loaded
+     ************************************************************/
 
-	return {
-		/**
+    function TrackerProxy() {
+        return {
+            push: apply
+        };
+    }
+
+    /************************************************************
+     * Constructor
+     ************************************************************/
+
+    // initialize the SnowPlow singleton
+    SnowPlow.addEventListener(SnowPlow.windowAlias, 'beforeunload', beforeUnloadHandler, false);
+    addReadyListener();
+
+    Date.prototype.getTimeAlias = Date.prototype.getTime;
+
+    SnowPlow.asyncTracker = new SnowPlow.Tracker();
+
+    for (var i = 0; i < _snaq.length; i++) {
+        apply(_snaq[i]);
+    }
+
+    // replace initialization array with proxy object
+    _snaq = new TrackerProxy();
+
+
+    /************************************************************
+     * Public data and methods
+     ************************************************************/
+
+    return {
+        /**
 		* Add plugin
 		*
 		* @param string pluginName
 		* @param Object pluginObj
 		*/
-		addPlugin: function (pluginName, pluginObj) {
-			SnowPlow.plugins[pluginName] = pluginObj;
-		},
+        addPlugin: function (pluginName, pluginObj) {
+            SnowPlow.plugins[pluginName] = pluginObj;
+        },
 
-		/**
+        /**
 		* Returns a Tracker object, configured with a
 		* CloudFront collector.
 		*
 		* @param string distSubdomain The subdomain on your CloudFront collector's distribution
 		*/
-		getTrackerCf: function (distSubdomain) {
-			return new SnowPlow.Tracker({cf: distSubdomain});
-		},
+        getTrackerCf: function (distSubdomain) {
+            return new SnowPlow.Tracker({ cf: distSubdomain });
+        },
 
-		/**
+        /**
 		* Returns a Tracker object, configured with the
 		* URL to the collector to use.
 		*
 		* @param string rawUrl The collector URL minus protocol and /i
 		*/
-		getTrackerUrl: function (rawUrl) {
-			return new SnowPlow.Tracker({url: rawUrl});
-		},
+        getTrackerUrl: function (rawUrl) {
+            return new SnowPlow.Tracker({ url: rawUrl });
+        },
 
-		/**
+        /**
 		* Get internal asynchronous tracker object
 		*
 		* @return Tracker
 		*/
-		getAsyncTracker: function () {
-			return SnowPlow.asyncTracker;
-		}
-	};
+        getAsyncTracker: function () {
+            return SnowPlow.asyncTracker;
+        }
+    };
 };
 
