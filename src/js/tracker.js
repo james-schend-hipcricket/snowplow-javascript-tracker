@@ -849,6 +849,7 @@ SnowPlow.Tracker = function Tracker(argmap) {
     * @param string pageTitle The page title to attach to this page ping
     */
     function logPagePing(pageTitle) {
+
         var sb = requestStringBuilder(configEncodeBase64);
         sb.add('e', 'pp'); // 'pp' for Page Ping
         sb.add('page', pageTitle);
@@ -858,6 +859,28 @@ SnowPlow.Tracker = function Tracker(argmap) {
         sb.addRaw('pp_may', maxYOffset); // Global
         resetMaxScrolls();
         var request = getRequest(sb, 'pagePing');
+        sendRequest(request, configTrackerPause);
+    }
+
+    /*
+    * Log that a user is unloading a given page- similar to logPagePing
+    *
+    * @param string pageTitle The page title to attach to this page ping
+    */
+    function logPageUnload(customTitle) {
+
+        // Fixup page title. We'll pass this to logPagePing too.
+        var pageTitle = SnowPlow.fixupTitle(customTitle || configTitle);
+        
+        var sb = requestStringBuilder(configEncodeBase64);
+        sb.add('e', 'pu'); // 'pu' for Page Unload
+        sb.add('page', pageTitle);
+        sb.addRaw('pp_mix', minXOffset); // Global
+        sb.addRaw('pp_max', maxXOffset); // Global
+        sb.addRaw('pp_miy', minYOffset); // Global
+        sb.addRaw('pp_may', maxYOffset); // Global
+        // resetMaxScrolls();   // Unnecessary: page is about to be destroyed
+        var request = getRequest(sb, 'pageUnload');
         sendRequest(request, configTrackerPause);
     }
 
@@ -1783,6 +1806,11 @@ SnowPlow.Tracker = function Tracker(argmap) {
         },
 
         // No public method to track a page ping
+        trackPageUnload: function( customTitle){
+            trackCallback(function() {
+                logPageUnload(customTitle);
+            });
+        },
 
         /**
         * Track an event happening on this page

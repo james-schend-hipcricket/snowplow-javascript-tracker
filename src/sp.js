@@ -1660,6 +1660,7 @@ SnowPlow.Tracker = function Tracker(argmap) {
     * @param string pageTitle The page title to attach to this page ping
     */
     function logPagePing(pageTitle) {
+
         var sb = requestStringBuilder(configEncodeBase64);
         sb.add('e', 'pp'); // 'pp' for Page Ping
         sb.add('page', pageTitle);
@@ -1669,6 +1670,28 @@ SnowPlow.Tracker = function Tracker(argmap) {
         sb.addRaw('pp_may', maxYOffset); // Global
         resetMaxScrolls();
         var request = getRequest(sb, 'pagePing');
+        sendRequest(request, configTrackerPause);
+    }
+
+    /*
+    * Log that a user is unloading a given page- similar to logPagePing
+    *
+    * @param string pageTitle The page title to attach to this page ping
+    */
+    function logPageUnload(customTitle) {
+
+        // Fixup page title. We'll pass this to logPagePing too.
+        var pageTitle = SnowPlow.fixupTitle(customTitle || configTitle);
+        
+        var sb = requestStringBuilder(configEncodeBase64);
+        sb.add('e', 'pu'); // 'pu' for Page Unload
+        sb.add('page', pageTitle);
+        sb.addRaw('pp_mix', minXOffset); // Global
+        sb.addRaw('pp_max', maxXOffset); // Global
+        sb.addRaw('pp_miy', minYOffset); // Global
+        sb.addRaw('pp_may', maxYOffset); // Global
+        // resetMaxScrolls();   // Unnecessary: page is about to be destroyed
+        var request = getRequest(sb, 'pageUnload');
         sendRequest(request, configTrackerPause);
     }
 
@@ -2594,6 +2617,11 @@ SnowPlow.Tracker = function Tracker(argmap) {
         },
 
         // No public method to track a page ping
+        trackPageUnload: function( customTitle){
+            trackCallback(function() {
+                logPageUnload(customTitle);
+            });
+        },
 
         /**
         * Track an event happening on this page
@@ -2837,17 +2865,17 @@ SnowPlow.build = function () {
     "use strict";
 
     /************************************************************
-     * Private methods
-     ************************************************************/
+    * Private methods
+    ************************************************************/
 
     /*
-     * apply wrapper
-     *
-     * @param array parameterArray An array comprising either:
-     *      [ 'methodName', optional_parameters ]
-     * or:
-     *      [ functionObject, optional_parameters ]
-     */
+    * apply wrapper
+    *
+    * @param array parameterArray An array comprising either:
+    *      [ 'methodName', optional_parameters ]
+    * or:
+    *      [ functionObject, optional_parameters ]
+    */
     function apply() {
         var i, f, parameterArray;
 
@@ -2864,11 +2892,13 @@ SnowPlow.build = function () {
     }
 
     /*
-     * Handle beforeunload event
-     */
+    * Handle beforeunload event
+    */
     function beforeUnloadHandler() {
-
         SnowPlow.executePluginMethod('unload');
+
+        //logUnloadPing('testing beforeunload');
+        _snaq.push(['trackPageUnload']);
 
         delayPage();
     }
@@ -2889,8 +2919,8 @@ SnowPlow.build = function () {
     }
 
     /*
-     * Handler for onload event
-     */
+    * Handler for onload event
+    */
     function loadHandler() {
         var i;
 
@@ -2905,8 +2935,8 @@ SnowPlow.build = function () {
     }
 
     /*
-     * Add onload or DOM ready handler
-     */
+    * Add onload or DOM ready handler
+    */
     function addReadyListener() {
         var _timer;
 
@@ -2934,7 +2964,7 @@ SnowPlow.build = function () {
                         }
                         loadHandler();
                     }
-                }());
+                } ());
             }
         }
 
@@ -2954,10 +2984,10 @@ SnowPlow.build = function () {
 
 
     /************************************************************
-     * Proxy object
-     * - this allows the caller to continue push()'ing to _snaq
-     *   after the Tracker has been initialized and loaded
-     ************************************************************/
+    * Proxy object
+    * - this allows the caller to continue push()'ing to _snaq
+    *   after the Tracker has been initialized and loaded
+    ************************************************************/
 
     function TrackerProxy() {
         return {
@@ -2966,8 +2996,8 @@ SnowPlow.build = function () {
     }
 
     /************************************************************
-     * Constructor
-     ************************************************************/
+    * Constructor
+    ************************************************************/
 
     // initialize the SnowPlow singleton
     SnowPlow.addEventListener(SnowPlow.windowAlias, 'beforeunload', beforeUnloadHandler, false);
@@ -2986,45 +3016,45 @@ SnowPlow.build = function () {
 
 
     /************************************************************
-     * Public data and methods
-     ************************************************************/
+    * Public data and methods
+    ************************************************************/
 
     return {
         /**
-		* Add plugin
-		*
-		* @param string pluginName
-		* @param Object pluginObj
-		*/
+        * Add plugin
+        *
+        * @param string pluginName
+        * @param Object pluginObj
+        */
         addPlugin: function (pluginName, pluginObj) {
             SnowPlow.plugins[pluginName] = pluginObj;
         },
 
         /**
-		* Returns a Tracker object, configured with a
-		* CloudFront collector.
-		*
-		* @param string distSubdomain The subdomain on your CloudFront collector's distribution
-		*/
+        * Returns a Tracker object, configured with a
+        * CloudFront collector.
+        *
+        * @param string distSubdomain The subdomain on your CloudFront collector's distribution
+        */
         getTrackerCf: function (distSubdomain) {
             return new SnowPlow.Tracker({ cf: distSubdomain });
         },
 
         /**
-		* Returns a Tracker object, configured with the
-		* URL to the collector to use.
-		*
-		* @param string rawUrl The collector URL minus protocol and /i
-		*/
+        * Returns a Tracker object, configured with the
+        * URL to the collector to use.
+        *
+        * @param string rawUrl The collector URL minus protocol and /i
+        */
         getTrackerUrl: function (rawUrl) {
             return new SnowPlow.Tracker({ url: rawUrl });
         },
 
         /**
-		* Get internal asynchronous tracker object
-		*
-		* @return Tracker
-		*/
+        * Get internal asynchronous tracker object
+        *
+        * @return Tracker
+        */
         getAsyncTracker: function () {
             return SnowPlow.asyncTracker;
         }
