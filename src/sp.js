@@ -3000,7 +3000,15 @@ SnowPlow.build = function () {
     ************************************************************/
 
     // initialize the SnowPlow singleton
-    SnowPlow.addEventListener(SnowPlow.windowAlias, 'beforeunload', beforeUnloadHandler, false);
+
+    // Add unload handler
+    if ((new RegExp('Firefox')).test(SnowPlow.navigatorAlias.userAgent)) {
+        SnowPlow.addEventListener(SnowPlow.windowAlias, 'unload', beforeUnloadHandler, false);
+    } else {
+        SnowPlow.addEventListener(SnowPlow.windowAlias, 'beforeunload', beforeUnloadHandler, false);
+    }
+
+
     addReadyListener();
 
     Date.prototype.getTimeAlias = Date.prototype.getTime;
