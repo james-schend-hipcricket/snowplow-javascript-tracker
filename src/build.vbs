@@ -13,6 +13,7 @@ Dim yuiCompressorFileName
 Dim shrinkSafeFileName
 Dim objShell
 Dim javaExeString
+Dim fileTxt, fileContents
 
 ' Paths
 depFilePath = "dependencies-win.txt"
@@ -56,3 +57,16 @@ javaExeString = "%comspec% /c """ + javaExePath + """ -jar " + shrinkSafeFileNam
 
 Set objShell = WScript.CreateObject ("WScript.Shell")
 objShell.Run javaExeString
+
+' Remove newlines from resulting file
+MsgBox folderSO.Path + "\" + destMinFilePath
+Set fileTxt = fileSO.OpenTextFile(folderSO.Path + "\" + destMinFilePath, 1)
+fileContents = fileTxt.ReadAll
+fileTxt.Close
+
+fileContents = Replace(fileContents, vbCr, "")
+fileContents = Replace(fileContents, vbLf, "")
+
+Set fileTxt = fileSO.OpenTextFile(folderSO.Path + "\" + destMinFilePath, 2)
+fileTxt.Write fileContents
+fileTxt.Close

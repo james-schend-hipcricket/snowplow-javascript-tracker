@@ -2861,7 +2861,8 @@ SnowPlow.Tracker = function Tracker(argmap) {
 	addPlugin, getAsyncTracker
 */
 
-SnowPlow.build = function () {
+SnowPlow.build = function ()
+{
     "use strict";
 
     /************************************************************
@@ -2876,16 +2877,20 @@ SnowPlow.build = function () {
     * or:
     *      [ functionObject, optional_parameters ]
     */
-    function apply() {
+    function apply()
+    {
         var i, f, parameterArray;
 
-        for (i = 0; i < arguments.length; i += 1) {
+        for (i = 0; i < arguments.length; i += 1)
+        {
             parameterArray = arguments[i];
             f = parameterArray.shift();
 
-            if (SnowPlow.isString(f)) {
+            if (SnowPlow.isString(f))
+            {
                 SnowPlow.asyncTracker[f].apply(SnowPlow.asyncTracker, parameterArray);
-            } else {
+            } else
+            {
                 f.apply(SnowPlow.asyncTracker, parameterArray);
             }
         }
@@ -2894,40 +2899,69 @@ SnowPlow.build = function () {
     /*
     * Handle beforeunload event
     */
-    function beforeUnloadHandler() {
-        SnowPlow.executePluginMethod('unload');
+    function beforeUnloadHandler()
+    {
+        if (!window._snaqUnloadRun)
+        {
 
-        //logUnloadPing('testing beforeunload');
-        _snaq.push(['trackPageUnload']);
+            SnowPlow.executePluginMethod('unload');
 
-        delayPage();
+            //logUnloadPing('testing beforeunload');
+            _snaq.push(['trackPageUnload']);
+
+            window._snaqUnloadRun = true;
+
+            delayPage();
+        }
     }
 
-    function delayPage() {
+    function pageHideHandler()
+    {
+        if (!window._snaqUnloadRun)
+        {
+
+            SnowPlow.executePluginMethod('unload');
+
+            //logUnloadPing('testing beforeunload');
+            _snaq.push(['trackPageUnload']);
+
+            window._snaqUnloadRun = true;
+
+            delayPage();
+        }
+    }
+
+    function delayPage()
+    {
         var s = Number(new Date().getTime()) + 250;
         var e = 0;
 
         Date.prototype.getTime = SnowPlow.savedGetTime;
 
-        for (var i = 0; e < s; i++) {
+        for (var i = 0; e < s; i++)
+        {
             e = getTimeMS();
         }
     }
 
-    function getTimeMS() {
+    function getTimeMS()
+    {
         return Number(new Date().getTime());
     }
 
     /*
     * Handler for onload event
     */
-    function loadHandler() {
+    function loadHandler()
+    {
         var i;
 
-        if (!SnowPlow.hasLoaded) {
+        if (!SnowPlow.hasLoaded)
+        {
             SnowPlow.hasLoaded = true;
             SnowPlow.executePluginMethod('load');
-            for (i = 0; i < SnowPlow.registeredOnLoadHandlers.length; i++) {
+            for (i = 0; i < SnowPlow.registeredOnLoadHandlers.length; i++)
+            {
                 SnowPlow.registeredOnLoadHandlers[i]();
             }
         }
@@ -2937,41 +2971,55 @@ SnowPlow.build = function () {
     /*
     * Add onload or DOM ready handler
     */
-    function addReadyListener() {
+    function addReadyListener()
+    {
         var _timer;
 
-        if (SnowPlow.documentAlias.addEventListener) {
-            SnowPlow.addEventListener(SnowPlow.documentAlias, 'DOMContentLoaded', function ready() {
+        if (SnowPlow.documentAlias.addEventListener)
+        {
+            SnowPlow.addEventListener(SnowPlow.documentAlias, 'DOMContentLoaded', function ready()
+            {
                 SnowPlow.documentAlias.removeEventListener('DOMContentLoaded', ready, false);
                 loadHandler();
             });
-        } else if (SnowPlow.documentAlias.attachEvent) {
-            SnowPlow.documentAlias.attachEvent('onreadystatechange', function ready() {
-                if (SnowPlow.documentAlias.readyState === 'complete') {
+        } else if (SnowPlow.documentAlias.attachEvent)
+        {
+            SnowPlow.documentAlias.attachEvent('onreadystatechange', function ready()
+            {
+                if (SnowPlow.documentAlias.readyState === 'complete')
+                {
                     SnowPlow.documentAlias.detachEvent('onreadystatechange', ready);
                     loadHandler();
                 }
             });
 
-            if (SnowPlow.documentAlias.documentElement.doScroll && SnowPlow.windowAlias === SnowPlow.windowAlias.top) {
-                (function ready() {
-                    if (!SnowPlow.hasLoaded) {
-                        try {
+            if (SnowPlow.documentAlias.documentElement.doScroll && SnowPlow.windowAlias === SnowPlow.windowAlias.top)
+            {
+                (function ready()
+                {
+                    if (!SnowPlow.hasLoaded)
+                    {
+                        try
+                        {
                             SnowPlow.documentAlias.documentElement.doScroll('left');
-                        } catch (error) {
+                        } catch (error)
+                        {
                             setTimeout(ready, 0);
                             return;
                         }
                         loadHandler();
                     }
-                } ());
+                }());
             }
         }
 
         // sniff for older WebKit versions
-        if ((new RegExp('WebKit')).test(SnowPlow.navigatorAlias.userAgent)) {
-            _timer = setInterval(function () {
-                if (SnowPlow.hasLoaded || /loaded|complete/.test(SnowPlow.documentAlias.readyState)) {
+        if ((new RegExp('WebKit')).test(SnowPlow.navigatorAlias.userAgent))
+        {
+            _timer = setInterval(function ()
+            {
+                if (SnowPlow.hasLoaded || /loaded|complete/.test(SnowPlow.documentAlias.readyState))
+                {
                     clearInterval(_timer);
                     loadHandler();
                 }
@@ -2989,7 +3037,8 @@ SnowPlow.build = function () {
     *   after the Tracker has been initialized and loaded
     ************************************************************/
 
-    function TrackerProxy() {
+    function TrackerProxy()
+    {
         return {
             push: apply
         };
@@ -3002,12 +3051,12 @@ SnowPlow.build = function () {
     // initialize the SnowPlow singleton
 
     // Add unload handler
-    if ((new RegExp('Firefox')).test(SnowPlow.navigatorAlias.userAgent)) {
-        SnowPlow.addEventListener(SnowPlow.windowAlias, 'unload', beforeUnloadHandler, false);
-    } else {
-        SnowPlow.addEventListener(SnowPlow.windowAlias, 'beforeunload', beforeUnloadHandler, false);
-    }
+    SnowPlow.addEventListener(SnowPlow.windowAlias, 'unload', beforeUnloadHandler, false);
 
+    //if (!(new RegExp('Firefox')).test(SnowPlow.navigatorAlias.userAgent))
+    //{
+        SnowPlow.addEventListener(SnowPlow.windowAlias, 'pagehide', pageHideHandler, false);
+    //}
 
     addReadyListener();
 
@@ -3015,12 +3064,14 @@ SnowPlow.build = function () {
 
     SnowPlow.asyncTracker = new SnowPlow.Tracker();
 
-    for (var i = 0; i < _snaq.length; i++) {
+    for (var i = 0; i < _snaq.length; i++)
+    {
         apply(_snaq[i]);
     }
 
     // replace initialization array with proxy object
     _snaq = new TrackerProxy();
+    _snaqUnloadRun = false;
 
 
     /************************************************************
@@ -3034,7 +3085,8 @@ SnowPlow.build = function () {
         * @param string pluginName
         * @param Object pluginObj
         */
-        addPlugin: function (pluginName, pluginObj) {
+        addPlugin: function (pluginName, pluginObj)
+        {
             SnowPlow.plugins[pluginName] = pluginObj;
         },
 
@@ -3044,7 +3096,8 @@ SnowPlow.build = function () {
         *
         * @param string distSubdomain The subdomain on your CloudFront collector's distribution
         */
-        getTrackerCf: function (distSubdomain) {
+        getTrackerCf: function (distSubdomain)
+        {
             return new SnowPlow.Tracker({ cf: distSubdomain });
         },
 
@@ -3054,7 +3107,8 @@ SnowPlow.build = function () {
         *
         * @param string rawUrl The collector URL minus protocol and /i
         */
-        getTrackerUrl: function (rawUrl) {
+        getTrackerUrl: function (rawUrl)
+        {
             return new SnowPlow.Tracker({ url: rawUrl });
         },
 
@@ -3063,7 +3117,8 @@ SnowPlow.build = function () {
         *
         * @return Tracker
         */
-        getAsyncTracker: function () {
+        getAsyncTracker: function ()
+        {
             return SnowPlow.asyncTracker;
         }
     };
