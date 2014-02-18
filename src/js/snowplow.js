@@ -281,7 +281,7 @@ SnowPlow.build = function ()
 
     // replace initialization array with proxy object
     _snaq = new TrackerProxy();
-    _snaqUnloadRun = false;
+    window._snaqUnloadRun = false;
 
 
     /************************************************************

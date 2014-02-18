@@ -59,7 +59,7 @@ Set objShell = WScript.CreateObject ("WScript.Shell")
 objShell.Run javaExeString
 
 ' Remove newlines from resulting file
-MsgBox folderSO.Path + "\" + destMinFilePath
+'MsgBox folderSO.Path + "\" + destMinFilePath
 Set fileTxt = fileSO.OpenTextFile(folderSO.Path + "\" + destMinFilePath, 1)
 fileContents = fileTxt.ReadAll
 fileTxt.Close
